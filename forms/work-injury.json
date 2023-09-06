@@ -1,0 +1,287 @@
+{
+	"adaptiveform": "0.10.0",
+	"items": [{
+		"fieldType": "plain-text",
+		"value": "Answer the following questions as best you can and find out in minutes if you have a claim. If you need help at any stage, call us on 1800 305 568."
+	}, {
+		"type": "object",
+		"fieldType": "panel",
+		"label": {
+			"value": "Work injury free claim check"
+		},
+		"items": [{
+			":type": "custom:vertical-tab",
+			"type": "object",
+			"name": "claim",
+			"items": [{
+				"fieldType": "panel",
+				"label": {
+					"value": "Start"
+				},
+				"items": [{
+					"type": "string",
+					"name": "injured",
+					"required": true,
+					"fieldType": "radio-group",
+					"label": {
+						"value": "Have you or someone you know, been injured at work or suffered an illness as a result of work?"
+					},
+					"enum": ["Yes", "No"],
+					"events": {
+						"change": "if($field == 'No', dispatchEvent($form, 'custom:journeyEnd', {msg:'*Thank you for your enquiry*. \n It looks like your injury doesnt qualify for a work cover claim. \n But, if you want to discuss your injury further, dont hesitate to call us on 1800 431 530 We are here to help any way we can.'}),'')"
+					}
+				}]
+			}, {
+				"fieldType": "panel",
+				"label": {
+					"value": "Location"
+				},
+				"items": [{
+					"type": "string",
+					"name": "state",
+					"fieldType": "radio-group",
+					"required": true,
+					"label": {
+						"value": "In which state or territory did the injury or illness occur?In which state or territory did the injury or illness occur?"
+					},
+					"enum": ["VIC", "QLD", "NSW", "ACT", "WA", "SA", "NT", "TAS", "Overseas"],
+					"events": {
+						"change": "if($field != 'VIC', dispatchEvent($form, 'custom:journeyEnd', {msg:'*Thank you for your enquiry.* \n The Maurice Blackburn Free Claim Check is not currently available in this location. \n Please dont hesitate to call us on 1800 431 530 to discuss your possible claim regarding an injury or illness.'}),'')"
+					}
+				}]
+			}, {
+				"fieldType": "panel",
+				"label": {
+					"value": "Treatment"
+				},
+				"items": [{
+					"type": "string",
+					"name": "treament",
+					"required": true,
+					"fieldType": "radio-group",
+					"label": {
+						"value": "Tell us about your medical treatment?"
+					},
+					"enum": ["I have been referred to a specialist", "I have had/will be having surgery", "I am in a hospital", "I am in a psychiatric facility", "I am in a rehabilitation facility", "None of the above"]
+				}]
+			}, {
+				"fieldType": "panel",
+				"label": {
+					"value": "Injury"
+				},
+				"items": [{
+					"name": "injury",
+					"required": true,
+					"fieldType": "checkbox-group",
+					"label": {
+						"value": "What is your injury/injuries?"
+					},
+					"enum": ["My enquiry relates to a death", "Neck injury", "Back injury", "Hip injury", "Knee injury", "Ankle injury", "Shoulder injury", "Elbow injury", "Wrist injury", "Hand, arm and/or leg injury", "Paraplegia", "Quadriplegia", "Amputation", "Acquired brain injury", "Loss of an organ", "Loss of hearing", "Loss of one of the other senses", "Psychological symptoms less than 18 months", "Psychological symptoms greater than 18 months", "Scarring or disfigurement", "None of the above"]
+				}]
+			}, {
+				"fieldType": "panel",
+				"label": {
+					"value": "Claim"
+				},
+				"items": [{
+					"type": "string",
+					"name": "claimed",
+					"required": true,
+					"fieldType": "radio-group",
+					"label": {
+						"value": "Have you made an insurance claim?"
+					},
+					"enum": ["Yes", "No"]
+				}, {
+					"type": "string",
+					"name": "status",
+					"fieldType": "radio-group",
+					"label": {
+						"value": "What was the result of the claim?"
+					},
+					"enum": ["Approved", "Declined", "Unsure"],
+					"rules": {
+						"visible": "claimed == 'Yes'"
+					}
+				}]
+			}, {
+				"fieldType": "panel",
+				"label": {
+					"value": "Time off"
+				},
+				"items": [{
+					"type": "string",
+					"name": "timeoff",
+					"fieldType": "radio-group",
+					"rules": {
+						"visible": "$form.claim.treament =='I have been referred to a specialist' || $form.claim.treament =='None of the above'"
+					},
+					"label": {
+						"value": "Have you had time off work due to your injury or illness?"
+					},
+					"enum": ["Yes", "No"]
+				}]
+			}, {
+				"fieldType": "panel",
+				"type": "object",
+				"name": "person",
+				"label": {
+					"value": "Your Details"
+				},
+				"items": [{
+					"type": "string",
+					"description": "The person's first name.",
+					"name": "firstName",
+					"required": true,
+					"fieldType": "text-input",
+					"label": {
+						"value": "First Name"
+					},
+					"constraintMessages": {
+						"required": "First name is mandatory"
+					}
+				}, {
+					"type": "string",
+					"description": "The person's last name.",
+					"name": "lastName",
+					"required": true,
+					"fieldType": "text-input",
+					"label": {
+						"value": "Last Name"
+					},
+					"constraintMessages": {
+						"required": "Last name is mandatory"
+					}
+				}, {
+					"name": "name",
+					"fieldType": "text-input",
+					"enabled": false,
+					"rules": {
+						"value": "firstName & ' ' & lastName"
+					},
+					"label": {
+						"value": "Your Full Name"
+					}
+				}, {
+					"name": "email",
+					"fieldType": "text-input",
+					"description": "It's a promise that we will not spam you",
+					"screenReaderText": "Provide your email address so that we can reply to you.",
+					"type": "string",
+					"format": "email",
+					"required": true,
+					"pattern": "^\\S+@\\S+\\.\\S+$",
+					"constraintMessages": {
+						"pattern": "Please enter a valid email address",
+						"required": "The email address is mandatory"
+					},
+					"label": {
+						"value": "Email Address"
+					}
+				}, {
+					"name": "phone",
+					"type": "string",
+					"required": true,
+					"fieldType": "text-input",
+					"pattern": "^\\d{10}$",
+					"description": "Your mobile number where we can reach you. But only if you want",
+					"screenReaderText": "Enter you mobile number without the ISD code",
+					"minimum": "1000000000",
+					"maximum": "9999999999",
+					"constraintMessages": {
+						"required": "Phone number is mandatory",
+						"pattern": "Phone number must be 10 digit long",
+						"minimum": "Phone number must be 10 digit long",
+						"maximum": "Phone number must be 10 digit long"
+					},
+					"label": {
+						"value": "Phone"
+					}
+				}, {
+					"name": "postalcode",
+					"fieldType": "text-input",
+					"required": true,
+					"type": "string",
+					"pattern": "^\\d{6}$",
+					"description": "Your postal code where we can reach you.",
+					"screenReaderText": "Enter you Postal Code",
+					"minimum": "100000",
+					"maximum": "999999",
+					"constraintMessages": {
+						"required": "Postal Code is mandatory",
+						"pattern": "Postal Code number must be 6 digit long",
+						"maximum": "Postal Code number must be 6 digit long"
+					},
+					"label": {
+						"value": "Postal Code"
+					}
+				}, {
+					"name": "comments",
+					"fieldType": "multiline-input",
+					"label": {
+						"value": "Is there anything else you would like us to know? (optional)"
+					}
+				}, {
+					"fieldType": "plain-text",
+					"richText": true,
+					"value": "Terms and conditions"
+				}, {
+					"name": "document",
+					"type": "file",
+					"fieldType": "file-input",
+					"label": {
+						"value": "Please upload supporting Document."
+					}
+				}, {
+					"name": "agreement",
+					"type": "boolean",
+					"required": true,
+					"label": {
+						"value": "I agree to Maurice Blackburn collecting this information and getting in contact with me with in accordance with the Collection Statement and Privacy Policy"
+					}
+				}, {
+					"fieldType": "plain-text",
+					"value": "<a style='color:red' href='https://www.mauriceblackburn.com.au/privacy/'>Maurice Blackburn's Privacy Policy and Collection Statement</a>"
+				}]
+			}]
+		}]
+	}, {
+		"fieldType": "plain-text",
+		"rules": {
+			"visible": "$form.claim.injured == 'No'"
+		},
+		"value": "*Thank you for your enquiry*. \n It looks like your injury doesn't qualify for a work cover claim. \n But, if you want to discuss your injury further, don't hesitate to call us on 1800 431 530 We are here to help any way we can."
+	}, {
+		"fieldType": "plain-text",
+		"rules": {
+			"visible": "$form.claim.state && $form.claim.state != 'VIC'"
+		},
+		"value": "*Thank you for your enquiry.* \n The Maurice Blackburn `Free Claim Check` is not currently available in this location. \n Please don't hesitate to call us on 1800 431 530 to discuss your possible claim regarding an injury or illness."
+	}, {
+		"name": "submit",
+		"fieldType": "button",
+		"events": {
+			"click": "submitForm('submitSuccess',null,'application/json')"
+		},
+		"label": {
+			"value": "Submit"
+		},
+		"rules": {
+			"enabled": "$form.claim.injured == 'Yes' && $form.claim.state == 'VIC'"
+		}
+	}],
+	"metadata": {
+		"version": "1.0.0",
+		"name": "Work Injury",
+		"description": "Work injury free claim check",
+		"tags": ["claim", "work", "injury"],
+		"thankYouMsg": "It looks like you might have a potential claim. \n We will call you within 24 hours (during our business hours 8am - 8pm AEST Monday-Friday) to discuss your potential claim and your obligation-free consultation",
+		"submitType": "POST",
+		"submitProp": "https://forms-api.azure-api.net/api/af"
+	},
+	"action": "https://core.crispr-api.workers.dev/submit/content/forms/af/free-claim-check/work-injury",
+	"thankYouMessage": "It looks like you might have a potential claim. \n We will call you within 24 hours (during our business hours 8am - 8pm AEST Monday-Friday) to discuss your potential claim and your obligation-free consultation",
+	"actionType": "POST",
+	"restEndpointPostUrl": "https://forms-api.azure-api.net/api/af",
+	"id": "/content/forms/af/free-claim-check/work-injury"
+}
