@@ -12,6 +12,7 @@
 /* eslint-disable import/no-extraneous-dependencies */
 import 'dotenv/config.js';
 import express from 'express';
+import cors from 'cors';
 import { render } from './index.js';
 
 const {
@@ -39,7 +40,7 @@ const handler = (req, res) => {
     path = `${path.substring(0, path.length - 3)}.html`;
   }
 
-  render(path, params).then(({ html, md, error }) => {
+  render(path, params).then(({ json, html, md, error }) => {
     if (error) {
       res.status(error.code || 503);
       res.send(error.message);
@@ -51,13 +52,17 @@ const handler = (req, res) => {
     if (serveMd) {
       res.contentType('.md');
       res.send(md.md);
+    } else if (json) {
+      res.contentType('.json');
+      res.send(JSON.stringify(json, null, 2));
     } else {
       res.send(html);
     }
   });
 };
-
+app.use(cors())
 app.get('/**.html', handler);
 app.get('/**.md', handler);
+app.get('/**.json', handler);
 // eslint-disable-next-line no-console
 app.listen(port, () => console.log(`Converter listening on port ${port}`));

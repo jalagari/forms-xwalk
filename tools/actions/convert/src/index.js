@@ -20,15 +20,25 @@ import transformCfg from '../../../importer/import.js';
 import { mapInbound } from './modules/mapping.js';
 import converterCfg from '../converter.yaml';
 
-export async function render(path, params, cfg = converterCfg) {
-  const mappedPath = mapInbound(path);
+function handleFormPath(path) {
+  if (path.startsWith('/content/forms/af') && path.endsWith(".json")) {
+    path = path.replace(".json", "/jcr:content/guideContainer.model.json");
+  }
+  return path;
+}
 
-  const { authorization, wcmmode } = params;
+export async function render(path, params, cfg = converterCfg) {
+  let mappedPath = mapInbound(path);
+  mappedPath = handleFormPath(mappedPath);
+
+  const { authorization, wcmmode, model = false } = params;
   const url = new URL(mappedPath, cfg.env.aemURL);
   if (wcmmode) {
     url.searchParams.set('wcmmode', wcmmode);
   }
 
+  console.log('Received request for', url.toString());
+  console.log('Authorization', authorization);
   const headers = { 'cache-control': 'no-cache' };
   if (authorization) {
     headers.authorization = authorization;
@@ -40,28 +50,34 @@ export async function render(path, params, cfg = converterCfg) {
     return { error: { code: resp.status, message: resp.statusText } };
   }
 
-  const text = await resp.text();
-  const { document } = new jsdom.JSDOM(text, { url }).window;
-  const md = await WebImporter.html2md(url, document, transformCfg);
-  const html = md2html(md);
-  return { md, html };
+  if(path.endsWith('.json')) {
+    let json = await resp.json();
+    return { json };
+  } else {
+    const text = await resp.text();
+    const { document } = new jsdom.JSDOM(text, { url }).window;
+    const md = await WebImporter.html2md(url, document, transformCfg);
+    const html = md2html(md);
+    return { md, html };
+  }
 }
 
 export async function main(params) {
   const path = params.__ow_path ? params.__ow_path : '';
   const authorization = params.__ow_headers ? params.__ow_headers.authorization : '';
 
-  const { html, error } = await render(path, { ...params, authorization });
+  const { json, html, error } = await render(path, { ...params, authorization });
 
   if (!error) {
     return {
       headers: {
         'x-html2md-img-src': converterCfg.env.aemURL,
+        'x-aem-resource-src': path,
       },
       statusCode: 200,
-      body: html,
+      body: html || json,
     };
   }
 
-  return { statusCode: error.code, body: error.message };
+  return { statusCode: 200, body: error };
 }
