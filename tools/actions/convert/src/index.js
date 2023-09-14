@@ -20,17 +20,12 @@ import transformCfg from '../../../importer/import.js';
 import { mapInbound } from './modules/mapping.js';
 import converterCfg from '../converter.yaml';
 import transformAFToFranklinJSON from './forms/transform.js';
+import { generateAFJSONResource, getFormModelPath, isAdaptiveForm } from './forms/util.js';
 
-function handleFormPath(path) {
-  if (path.startsWith('/content/forms/af') && path.endsWith(".json")) {
-    path = path.replace(".json", "/jcr:content/guideContainer.model.json");
-  }
-  return path;
-}
 
 export async function render(path, params, cfg = converterCfg) {
   let mappedPath = mapInbound(path);
-  mappedPath = handleFormPath(mappedPath);
+  mappedPath = getFormModelPath(mappedPath);
 
   const { authorization, wcmmode, model = false } = params;
   const url = new URL(mappedPath, cfg.env.aemURL);
@@ -62,6 +57,9 @@ export async function render(path, params, cfg = converterCfg) {
     const { document } = new jsdom.JSDOM(text, { url }).window;
     const md = await WebImporter.html2md(url, document, transformCfg);
     const html = md2html(md);
+    if (isAdaptiveForm(path)) {
+      await generateAFJSONResource(path, headers);
+    }
     return { md, html };
   }
 }
