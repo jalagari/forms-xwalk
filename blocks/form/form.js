@@ -132,10 +132,10 @@ function createFieldWrapper(fd, tagName = 'div') {
   if (fd.Fieldset) {
     fieldWrapper.dataset.fieldset = fd.Fieldset;
   }
-  if (fd.Mandatory.toLowerCase() === 'true') {
+  if (fd.Mandatory === true || fd.Mandatory?.toLowerCase() === 'true') {
     fieldWrapper.dataset.required = '';
   }
-  if (fd.Hidden?.toLowerCase() === 'true') {
+  if (fd.Hidden === true || fd.Hidden?.toLowerCase() === 'true') {
     fieldWrapper.dataset.hidden = 'true';
   }
   fieldWrapper.classList.add('field-wrapper');
@@ -340,7 +340,7 @@ async function createForm(formURL) {
   data.forEach((fd) => {
     const el = renderField(fd);
     const input = el.querySelector('input,textarea,select');
-    if (fd.Mandatory && fd.Mandatory.toLowerCase() === 'true') {
+    if (fd.Mandatory === true || fd.Mandatory?.toLowerCase() === 'true') {
       input.setAttribute('required', 'required');
     }
     if (input) {
