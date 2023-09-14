@@ -15,6 +15,38 @@
 // helix-importer-ui <-> node compatibility:
 if (window) window.decodeHtmlEntities = (text) => text; // not-needed in browser
 
+const getFormBlock = (document, formPath) => {
+  const formLink = formPath.replace('/jcr:content/guideContainer', '.json');
+  const cells = [
+    ['Form'],
+    [ `<a href="${formLink}">${formLink}</a>`],
+  ]; 
+ 
+  return WebImporter.DOMUtils.createTable(cells, document);
+}
+
+const transformForm = (main, document) => {
+  // Form embedd in Site page.
+  const aemforms = document.querySelectorAll(".aemform");
+  aemforms.forEach((aemform) => {
+    const formPath = aemform.querySelector("form").dataset.formPagePath;
+    if (formPath) {
+      const table = getFormBlock(document, formPath);
+      aemform.replaceWith(table);
+    }
+  });
+
+  // Direct Form Page.
+  const formContainer = document.querySelector(".cmp-adaptiveform-container");
+  if (formContainer) {
+    const formPath = formContainer.querySelector('form')?.dataset?.cmpPath;
+    if (formPath) {
+      const table = getFormBlock(document, formPath);
+      formContainer.replaceWith(table);
+    }
+  }
+}
+
 const createMetadata = (main, document) => {
   const meta = {};
 
@@ -382,6 +414,7 @@ export default {
   }) => {
     // define the main element: the one that will be transformed to Markdown
     const main = document.body;
+    transformForm(main, document);
     createFullLayoutSection(main, document);
     createHero(main, document);
     createCards(main, document);
