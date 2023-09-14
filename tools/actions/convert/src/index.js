@@ -19,6 +19,7 @@ import md2html from './modules/md2html.js';
 import transformCfg from '../../../importer/import.js';
 import { mapInbound } from './modules/mapping.js';
 import converterCfg from '../converter.yaml';
+import transformAFToFranklinJSON from './forms/transform.js';
 
 function handleFormPath(path) {
   if (path.startsWith('/content/forms/af') && path.endsWith(".json")) {
@@ -52,6 +53,9 @@ export async function render(path, params, cfg = converterCfg) {
 
   if(path.endsWith('.json')) {
     let json = await resp.json();
+    if(model !== 'true') {
+      json = transformAFToFranklinJSON(json);
+    }
     return { json };
   } else {
     const text = await resp.text();
