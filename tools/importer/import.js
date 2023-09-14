@@ -15,36 +15,30 @@
 // helix-importer-ui <-> node compatibility:
 if (window) window.decodeHtmlEntities = (text) => text; // not-needed in browser
 
-const getFormBlock = (document, formPath) => {
-  const formLink = formPath.replace('/jcr:content/guideContainer', '.json');
+const aemURL = `https://publish-p10652-e192853-cmstg.adobeaemcloud.com`;
+const submitEndpoint = `/adobe/forms/af/submit/`;
+
+const getFormBlock = (document, formPath, formId) => {
+  const formLink = formPath.replace('/jcr:content/guideContainer', '') + '.json';
   const cells = [
     ['Form'],
     [ `<a href="${formLink}">${formLink}</a>`],
+    ['submit', `${aemURL}${submitEndpoint}${formId}`]
   ]; 
  
   return WebImporter.DOMUtils.createTable(cells, document);
 }
 
 const transformForm = (main, document) => {
-  // Form embedd in Site page.
-  const aemforms = document.querySelectorAll(".aemform");
+
+  const aemforms = document.querySelectorAll("form.cmp-adaptiveform-container")
   aemforms.forEach((aemform) => {
-    const formPath = aemform.querySelector("form").dataset.formPagePath;
+    const {id, dataset: { cmpPath : formPath }} = aemform;
     if (formPath) {
-      const table = getFormBlock(document, formPath);
+      const table = getFormBlock(document, formPath, id);
       aemform.replaceWith(table);
     }
   });
-
-  // Direct Form Page.
-  const formContainer = document.querySelector(".cmp-adaptiveform-container");
-  if (formContainer) {
-    const formPath = formContainer.querySelector('form')?.dataset?.cmpPath;
-    if (formPath) {
-      const table = getFormBlock(document, formPath);
-      formContainer.replaceWith(table);
-    }
-  }
 }
 
 const createMetadata = (main, document) => {
