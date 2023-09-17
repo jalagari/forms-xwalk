@@ -1,4 +1,4 @@
-import { sampleRUM } from '../../scripts/lib-franklin.js';
+import { readBlockConfig, sampleRUM } from '../../scripts/lib-franklin.js';
 
 function generateUnique() {
   return new Date().valueOf() + Math.random();
@@ -43,7 +43,7 @@ async function prepareRequest(form, transformer) {
     'Content-Type': 'application/json',
   };
   const body = JSON.stringify({ data: payload });
-  const url = form.dataset.action;
+  const url = form.dataset.submit || form.dataset.action;
   if (typeof transformer === 'function') {
     return transformer({ headers, body, url }, form);
   }
@@ -257,7 +257,7 @@ function createPlainText(fd) {
   const nameStyle = fd.Name ? `form-${fd.Name}` : '';
   paragraph.className = nameStyle;
   paragraph.dataset.fieldset = fd.Fieldset ? fd.Fieldset : '';
-  paragraph.textContent = fd.Label;
+  paragraph.innerHTML = fd.Value;
   return paragraph;
 }
 
@@ -374,6 +374,11 @@ export default async function decorate(block) {
   const formLink = block.querySelector('a[href$=".json"]');
   if (formLink) {
     const form = await createForm(formLink.href);
+
+    const config = readBlockConfig(block);
+    console.log('Form config', config)
+    Object.entries(config).forEach(([key, value]) => { value ? form.dataset[key] = value : null });
+
     formLink.replaceWith(form);
   }
 }

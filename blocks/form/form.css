@@ -148,6 +148,10 @@ main .form label.required::after {
     padding-inline-start: 5px;
 }
 
+main .form > div:not(:first-child) {
+    display: none;
+}
+
 main .form form p,
 main .form form .field-wrapper {
     margin: var(--form-field-gap);
