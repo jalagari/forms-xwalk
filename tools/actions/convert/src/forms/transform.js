@@ -48,19 +48,9 @@ class TransformAFToFranklinJSON {
     ['panel', 'fieldset'],
   ]);
 
-  reversedFieldMapping;
-
-  constructor() {
-    const map = new Map();
-    this.fieldMapping.forEach((value, key) => {
-      map.set(value, key);
-    });
-    this.reversedFieldMapping = map;
-  }
-
   #isAF(def) {
     // eslint-disable-next-line no-prototype-builtins
-    return def && def.hasOwnProperty(this.ADAPTIVEFORM) && def.hasOwnProperty(this.ITEMS);
+    return def && def.hasOwnProperty(this.ITEMS);
   }
 
   #getInitialData() {
@@ -106,6 +96,7 @@ class TransformAFToFranklinJSON {
          } else {
            this.#handleOptions(field);
            this.#handlePlainTextField(field, item);
+           this.#handleSubmitButton(field, item)
          }
       }
     }
@@ -118,8 +109,14 @@ class TransformAFToFranklinJSON {
         target[key] = source[field];
       }
     });
-    target.Label = source?.label?.value;
-    target.Type = this.#getFieldType(source.fieldType);
+    target.Label = source?.label?.value || source?.title;
+    target.Type = this.#getFieldType(source.fieldType || source.type);
+  }
+
+  #handleSubmitButton(field, item) {
+    if (item.buttonType === 'submit' || field.type === 'submit') {
+      field.Type = 'submit';
+    }
   }
 
   #handleOptions(field) {

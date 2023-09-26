@@ -18,11 +18,11 @@ if (window) window.decodeHtmlEntities = (text) => text; // not-needed in browser
 const aemURL = `https://publish-p10652-e192853-cmstg.adobeaemcloud.com`;
 const submitEndpoint = `/adobe/forms/af/submit/`;
 
-const getFormBlock = (document, formPath, formId) => {
-  const formLink = formPath.replace('/jcr:content/guideContainer', '') + '.json';
+const getFormBlock = (document, formId) => {
+  formId = formId.replace(/=/g, '');
   const cells = [
     ['Form'],
-    [ `<a href="${formLink}">${formLink}</a>`],
+    [ `<a href="/${formId}.json">${formId}</a>`],
     ['submit', `${aemURL}${submitEndpoint}${formId}`]
   ]; 
  
@@ -32,11 +32,20 @@ const getFormBlock = (document, formPath, formId) => {
 const transformForm = (main, document) => {
 
   const aemforms = document.querySelectorAll("form.cmp-adaptiveform-container")
-  aemforms.forEach((aemform) => {
+  aemforms?.forEach((aemform) => {
     const {id, dataset: { cmpPath : formPath }} = aemform;
     if (formPath) {
-      const table = getFormBlock(document, formPath, id);
+      const table = getFormBlock(document, id);
       aemform.replaceWith(table);
+    }
+  });
+
+  const siteForms = document.querySelectorAll(".cmp-form");
+  siteForms?.forEach((siteForm) => {
+    if (siteForm && siteForm.tagName === 'FORM') {
+      const path = siteForm.elements[':formstart']?.value;
+      const table = getFormBlock(document, btoa(path));
+      siteForm.replaceWith(table);
     }
   });
 }
