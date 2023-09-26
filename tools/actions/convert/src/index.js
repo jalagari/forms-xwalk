@@ -20,7 +20,7 @@ import transformCfg from '../../../importer/import.js';
 import { mapInbound } from './modules/mapping.js';
 import converterCfg from '../converter.yaml';
 import transformAFToFranklinJSON from './forms/transform.js';
-import { generateAFJSONResource, getFormModelPath, isAdaptiveForm } from './forms/util.js';
+import { generateAFJSONResource, getFormModelPath } from './forms/util.js';
 
 
 export async function render(path, params, cfg = converterCfg) {
@@ -43,31 +43,38 @@ export async function render(path, params, cfg = converterCfg) {
   const resp = await fetch(url, { headers });
 
   if (!resp.ok) {
+    console.log('Request failed for', url, `with status ${resp.status}`, resp.headers);
     return { error: { code: resp.status, message: resp.statusText } };
   }
 
+  let json, md, html, formUrls;
+
   if(path.endsWith('.json')) {
-    let json = await resp.json();
+    json = await resp.json();
     if(model !== 'true') {
       json = transformAFToFranklinJSON(json);
     }
-    return { json };
   } else {
     const text = await resp.text();
     const { document } = new jsdom.JSDOM(text, { url }).window;
-    const md = await WebImporter.html2md(url, document, transformCfg);
-    const html = md2html(md);
-    if (isAdaptiveForm(path)) {
-      await generateAFJSONResource(path, headers);
+    md = await WebImporter.html2md(url, document, transformCfg);
+    ({html, formUrls} = md2html(md));
+    console.log('Form URLs', formUrls);
+    for (const formUrl of formUrls) {
+      console.log('Generating form JSON for', formUrl);
+      await generateAFJSONResource(formUrl, headers);
     }
-    return { md, html };
   }
+  console.log('Request succeeded for', url.toString(), `with status ${resp.status}`);
+  return { md, html, json };
+
 }
 
 export async function main(params) {
   const path = params.__ow_path ? params.__ow_path : '';
   const authorization = params.__ow_headers ? params.__ow_headers.authorization : '';
 
+  console.log('Received request for', path);
   const { json, html, error } = await render(path, { ...params, authorization });
 
   if (!error) {

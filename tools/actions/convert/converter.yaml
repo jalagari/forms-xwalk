@@ -1,3 +1,4 @@
 env:
   publicURL: https://main--forms-xwalk--jalagari.hlx.page/
   aemURL:  https://author-p10652-e192853-cmstg.adobeaemcloud.com/
+  aemPublishURL:  https://publish-p10652-e192853-cmstg.adobeaemcloud.com

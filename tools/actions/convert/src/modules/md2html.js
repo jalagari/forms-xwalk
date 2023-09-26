@@ -27,6 +27,7 @@ import { h } from 'hastscript';
 import fixSections from '@adobe/helix-html-pipeline/src/steps/fix-sections.js';
 import rewriteUrls from './utils/rewrite-urls.js';
 import converterCfg from '../../converter.yaml';
+import { extractFormUrls } from '../forms/form-urls.js';
 
 export default function md2html(md, cfg = converterCfg) {
   // note: we could use the entire unified chain, but it would need to be async -
@@ -54,6 +55,7 @@ export default function md2html(md, cfg = converterCfg) {
   rewriteUrls({ content });
   fixSections({ content });
   createPageBlocks({ content });
+  const formUrls = extractFormUrls({ content });
 
   const hast = h('html', [
     h('body', [
@@ -65,7 +67,7 @@ export default function md2html(md, cfg = converterCfg) {
   raw(hast);
   rehypeFormat()(hast);
 
-  return toHtml(hast, {
+  return { html: toHtml(hast, {
     upperDoctype: true,
-  });
+  }), formUrls: formUrls }
 }
