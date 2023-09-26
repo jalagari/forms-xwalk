@@ -1,5 +1,6 @@
 import { applyRuleEngine } from '../rules/index.js';
 import { transformFileDOM, transformFileRequest } from './attachments.js';
+import { transformToMultipart } from './multipart.js';
 import { transformCaptchaDOM, transformCaptchaRequest } from './recaptcha.js';
 import transferRepeatableDOM from './repeat.js';
 
@@ -16,4 +17,5 @@ export const asyncTransformers = [
 export const requestTransformers = [
   transformCaptchaRequest,
   transformFileRequest,
+  transformToMultipart,
 ];

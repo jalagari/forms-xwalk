@@ -1,4 +1,4 @@
-import { readBlockConfig, sampleRUM } from '../../scripts/lib-franklin.js';
+import { readBlockConfig } from '../../scripts/lib-franklin.js';
 
 function generateUnique() {
   return new Date().valueOf() + Math.random();
@@ -59,7 +59,6 @@ async function submitForm(form, transformer) {
       body,
     });
     if (response.ok) {
-      sampleRUM('form:submit');
       window.location.href = form.dataset?.redirect || 'thankyou';
     } else {
       const error = await response.text();
@@ -301,14 +300,17 @@ function renderField(fd) {
 
 async function applyTransformation(formDef, form) {
   try {
-    const mod = await import('./transformer.js');
-    const {
-      default: {
-        transformDOM = () => {},
-        transformRequest,
-      },
-    } = mod;
-    transformDOM(formDef, form);
+    const { requestTransformers, transformers } = await import('./decorators/index.js');
+    if (transformers) {
+      transformers.forEach(
+        (fn) => fn.call(this, formDef, form),
+      );
+    }
+
+    const transformRequest = async (request, fd) => requestTransformers?.reduce(
+      (promise, transformer) => promise.then((modifiedRequest) => transformer(modifiedRequest, fd)),
+      Promise.resolve(request),
+    );
     return transformRequest;
   } catch (e) {
     // eslint-disable-next-line no-console
@@ -374,11 +376,9 @@ export default async function decorate(block) {
   const formLink = block.querySelector('a[href$=".json"]');
   if (formLink) {
     const form = await createForm(formLink.href);
+    formLink.replaceWith(form);
 
     const config = readBlockConfig(block);
-    console.log('Form config', config)
-    Object.entries(config).forEach(([key, value]) => { value ? form.dataset[key] = value : null });
-
-    formLink.replaceWith(form);
+    Object.entries(config).forEach(([key, value]) => { if (value) form.dataset[key] = value; });
   }
 }

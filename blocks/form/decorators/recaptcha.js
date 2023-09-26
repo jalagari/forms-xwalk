@@ -15,15 +15,17 @@ function loadScript(url) {
 
 export async function transformCaptchaDOM(formDef, form) {
   const button = form.querySelector('button[type="submit"]');
-  const obs = new IntersectionObserver((entries) => {
-    entries.forEach((entry) => {
-      if (entry.isIntersecting) {
-        loadScript(`https://www.google.com/recaptcha/api.js?render=${SITE_KEY}`);
-        obs.disconnect();
-      }
+  if (button) {
+    const obs = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          loadScript(`https://www.google.com/recaptcha/api.js?render=${SITE_KEY}`);
+          obs.disconnect();
+        }
+      });
     });
-  });
-  obs.observe(button);
+    obs.observe(button);
+  }
 }
 
 export async function transformCaptchaRequest(request) {
