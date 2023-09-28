@@ -32,18 +32,11 @@ function isBase64(input) {
 }
 
 export function getFormModelPath(path) {
-    if (path && path?.endsWith('.json')) {
-        path = path.replace('.json', '').replace('/','');
-        path = addMissingEqualSigns(path);
-        if (isBase64(path)) {
-            path = atob(path);
-            if (isAdaptiveForm(path)) {
-                path = path + '/jcr:content/guideContainer.model.json';
-            } else {
-                path = path + '.model.json';
-            }
-        }
-    }
+    if (path.endsWith(".json")) {
+        path = path.replace('jcrcontent','jcr:content');
+        path = path.replace(".json", ".model.json");
+        path = path.replace('guidecontainer','guideContainer');
+    } 
     return path;
 }
 

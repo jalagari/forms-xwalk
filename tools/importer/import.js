@@ -18,11 +18,11 @@ if (window) window.decodeHtmlEntities = (text) => text; // not-needed in browser
 const aemURL = `https://publish-p10652-e192853-cmstg.adobeaemcloud.com`;
 const submitEndpoint = `/adobe/forms/af/submit/`;
 
-const getFormBlock = (document, formId) => {
-  formId = formId.replace(/=/g, '');
+const getFormBlock = (document, formPath, formId) => {
+  const formLink = formPath.replace('jcr:content', 'jcrcontent').replace('guideContainer','guidecontainer') + '.json';
   const cells = [
     ['Form'],
-    [ `<a href="/${formId}.json">${formId}</a>`],
+    [ `<a href="${formLink}">${formLink}</a>`],
     ['submit', `${aemURL}${submitEndpoint}${formId}`]
   ]; 
  
@@ -35,7 +35,7 @@ const transformForm = (main, document) => {
   aemforms?.forEach((aemform) => {
     const {id, dataset: { cmpPath : formPath }} = aemform;
     if (formPath) {
-      const table = getFormBlock(document, id);
+      const table = getFormBlock(document, formPath, id);
       aemform.replaceWith(table);
     }
   });
@@ -44,7 +44,7 @@ const transformForm = (main, document) => {
   siteForms?.forEach((siteForm) => {
     if (siteForm && siteForm.tagName === 'FORM') {
       const path = siteForm.elements[':formstart']?.value;
-      const table = getFormBlock(document, btoa(path));
+      const table = getFormBlock(document, path);
       siteForm.replaceWith(table);
     }
   });
