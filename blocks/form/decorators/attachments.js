@@ -116,7 +116,7 @@ export async function transformFileDOM(formDef, form) {
     };
     const dropArea = document.createElement('div');
     dropArea.className = 'field-dropregion';
-    dropArea.innerHTML = `<p>${input.getAttribute('placeholder')}</p>`;
+    dropArea.innerHTML = `<p>${input.getAttribute('placeholder') || ""}</p>`;
     dropArea.ondragover = (event) => event.preventDefault();
     dropArea.ondrop = (event) => {
       attachFiles([...event.dataTransfer.files]);

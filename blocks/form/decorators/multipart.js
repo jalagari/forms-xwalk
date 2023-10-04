@@ -15,7 +15,7 @@ export async function transformToMultipart(request, form) {
     newbody.append('submitMetadata', JSON.stringify({lang : "en-US"}));
     return {
         body: newbody,
-        headers,
+        headers: {},
         url,
       };
 }
