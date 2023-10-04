@@ -14,6 +14,7 @@ import 'dotenv/config.js';
 import express from 'express';
 import cors from 'cors';
 import { render } from './index.js';
+import isBinary from './modules/utils/media-utils.js';
 
 const {
   AEM_USER,
@@ -40,7 +41,7 @@ const handler = (req, res) => {
     path = `${path.substring(0, path.length - 3)}.html`;
   }
 
-  render(path, params).then(({ json, html, md, error }) => {
+  render(path, params).then(({ data, json, html, md, error, respHeaders }) => {
     if (error) {
       res.status(error.code || 503);
       res.send(error.message);
@@ -48,6 +49,7 @@ const handler = (req, res) => {
     }
 
     res.status(200);
+    const body = isBinary(respHeaders['content-type']) ? data : html;
 
     if (serveMd) {
       res.contentType('.md');
@@ -56,13 +58,12 @@ const handler = (req, res) => {
       res.contentType('.json');
       res.send(JSON.stringify(json, null, 2));
     } else {
-      res.send(html);
+      res.contentType(respHeaders['content-type']);
+      res.send(body);
     }
   });
 };
 app.use(cors())
-app.get('/**.html', handler);
-app.get('/**.md', handler);
-app.get('/**.json', handler);
+app.get('/**.*', handler);
 // eslint-disable-next-line no-console
 app.listen(port, () => console.log(`Converter listening on port ${port}`));

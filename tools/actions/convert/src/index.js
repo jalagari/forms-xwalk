@@ -21,6 +21,7 @@ import { mapInbound } from './modules/mapping.js';
 import converterCfg from '../converter.yaml';
 import transformAFToFranklinJSON from './forms/transform.js';
 import { generateAFJSONResource, getFormModelPath } from './forms/util.js';
+import isBinary from './modules/utils/media-utils.js';
 
 
 export async function render(path, params, cfg = converterCfg) {
@@ -46,7 +47,17 @@ export async function render(path, params, cfg = converterCfg) {
     console.log('Request failed for', url, `with status ${resp.status}`, resp.headers);
     return { error: { code: resp.status, message: resp.statusText } };
   }
+ let contentType = resp.headers.get('content-type') || 'text/html';
+  [contentType] = contentType.split(';');
 
+  const respHeaders = {
+    'content-type': contentType,
+  };
+
+  if (isBinary(contentType)) {
+    const data = Buffer.from(await resp.arrayBuffer());
+    return { data, respHeaders };
+  }
   let json, md, html, formUrls;
 
   if(path.endsWith('.json')) {
@@ -66,7 +77,7 @@ export async function render(path, params, cfg = converterCfg) {
     }
   }
   console.log('Request succeeded for', url.toString(), `with status ${resp.status}`);
-  return { md, html, json };
+  return { md, html, json, respHeaders };
 
 }
 
@@ -75,16 +86,18 @@ export async function main(params) {
   const authorization = params.__ow_headers ? params.__ow_headers.authorization : '';
 
   console.log('Received request for', path);
-  const { json, html, error } = await render(path, { ...params, authorization });
+  const { data, json, html, error, respHeaders } = await render(path, { ...params, authorization });
+  const body = isBinary(respHeaders['content-type']) ? data.toString('base64') : html;
 
   if (!error) {
     return {
       headers: {
-        'x-html2md-img-src': converterCfg.env.aemURL,
+        ...respHeaders,
+        ...(!isBinary(respHeaders['content-type']) && { 'x-html2md-img-src': converterCfg.env.aemURL }),
         'x-aem-resource-src': path,
       },
       statusCode: 200,
-      body: html || json,
+      body: body || json,
     };
   }
 

@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
-    "serve": "npm-run-all build --parallel serve:*",
+    "start": "npm-run-all build --parallel serve:*",
     "serve:build": "webpack ./src/express.js --watch",
-    "serve:server": "nodemon --inspect ./dist/main.js --watch ./dist",
+    "serve:server": "AEM_USER=admin AEM_PASSWORD=[@MuFdwX[rkx86{VHgl+7a+N nodemon --inspect ./dist/main.js --watch ./dist",
     "build": "rimraf dist/ && webpack",
     "test": "instant-mocha"
   },
