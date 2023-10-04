@@ -1,39 +1,71 @@
-import tokenDefinitions from './Tokens.js';
+/* eslint-disable no-underscore-dangle */
+import tokenDefinitions from './tokenDefinitions.js';
 
 const {
-  TOK_ADD,
-  TOK_COMMA,
-  TOK_CONCATENATE,
-  TOK_DIVIDE,
-  TOK_EQ,
-  TOK_GT,
-  TOK_GTE,
-  TOK_LITERAL,
-  TOK_LPAREN,
-  TOK_LT,
-  TOK_LTE,
-  TOK_MULTIPLY,
-  TOK_NE,
-  TOK_NUMBER,
+  TOK_UNQUOTEDIDENTIFIER,
   TOK_QUOTEDIDENTIFIER,
+  TOK_RBRACKET,
   TOK_RPAREN,
+  TOK_COMMA,
+  TOK_COLON,
+  TOK_CONCATENATE,
+  TOK_RBRACE,
+  TOK_NUMBER,
+  TOK_CURRENT,
+  TOK_GLOBAL,
+  TOK_EXPREF,
+  TOK_PIPE,
+  TOK_OR,
+  TOK_AND,
+  TOK_ADD,
   TOK_SUBTRACT,
   TOK_UNARY_MINUS,
-  TOK_UNQUOTEDIDENTIFIER,
-  TOK_SHEET_ACCESS,
+  TOK_MULTIPLY,
+  TOK_POWER,
+  TOK_DIVIDE,
+  TOK_UNION,
+  TOK_EQ,
+  TOK_GT,
+  TOK_LT,
+  TOK_GTE,
+  TOK_LTE,
+  TOK_NE,
+  TOK_FLATTEN,
+  TOK_STAR,
+  TOK_FILTER,
+  TOK_DOT,
+  TOK_NOT,
+  TOK_LBRACE,
+  TOK_LBRACKET,
+  TOK_LPAREN,
+  TOK_LITERAL,
 } = tokenDefinitions;
 
+// The "&", "[", "<", ">" tokens
+// are not in basicToken because
+// there are two token variants
+// ("&&", "[?", "<=", ">=").  This is specially handled
+// below.
+
 const basicTokens = {
-  '!': TOK_SHEET_ACCESS,
+  '.': TOK_DOT,
+  // "*": TOK_STAR,
   ',': TOK_COMMA,
+  ':': TOK_COLON,
+  '{': TOK_LBRACE,
+  '}': TOK_RBRACE,
+  ']': TOK_RBRACKET,
   '(': TOK_LPAREN,
   ')': TOK_RPAREN,
+  '@': TOK_CURRENT,
 };
 
+const globalStartToken = '$';
 const operatorStartToken = {
   '<': true,
   '>': true,
   '=': true,
+  '!': true,
 };
 
 const skipChars = {
@@ -48,9 +80,9 @@ function isNum(ch) {
 
 function isAlphaNum(ch) {
   return (ch >= 'a' && ch <= 'z')
-    || (ch >= 'A' && ch <= 'Z')
-    || (ch >= '0' && ch <= '9')
-    || ch === '_';
+           || (ch >= 'A' && ch <= 'Z')
+           || (ch >= '0' && ch <= '9')
+           || ch === '_';
 }
 
 function isIdentifier(stream, pos) {
@@ -61,85 +93,146 @@ function isIdentifier(stream, pos) {
   }
   // return whether character 'isAlpha'
   return (ch >= 'a' && ch <= 'z')
-    || (ch >= 'A' && ch <= 'Z')
-    || ch === '_';
+          || (ch >= 'A' && ch <= 'Z')
+          || ch === '_';
 }
 
 export default class Lexer {
-  constructor(debug = []) {
+  constructor(allowedGlobalNames = [], debug = []) {
+    this._allowedGlobalNames = allowedGlobalNames;
     this.debug = debug;
   }
 
   tokenize(stream) {
     const tokens = [];
-    this.current = 0;
+    this._current = 0;
     let start;
     let identifier;
     let token;
-    while (this.current < stream.length) {
+    while (this._current < stream.length) {
       const prev = tokens.length ? tokens.slice(-1)[0].type : null;
 
-      if (isIdentifier(stream, this.current)) {
-        start = this.current;
-        identifier = this.consumeUnquotedIdentifier(stream);
+      if (this._isGlobal(prev, stream, this._current)) {
+        tokens.push(this._consumeGlobal(stream));
+      } else if (isIdentifier(stream, this._current)) {
+        start = this._current;
+        identifier = this._consumeUnquotedIdentifier(stream);
         tokens.push({
           type: TOK_UNQUOTEDIDENTIFIER,
           value: identifier,
           start,
         });
-      } else if (basicTokens[stream[this.current]] !== undefined) {
+      } else if (basicTokens[stream[this._current]] !== undefined) {
         tokens.push({
-          type: basicTokens[stream[this.current]],
-          value: stream[this.current],
-          start: this.current,
+          type: basicTokens[stream[this._current]],
+          value: stream[this._current],
+          start: this._current,
         });
-        this.current += 1;
-      } else if (stream[this.current] === '-'
-        && ![TOK_NUMBER, TOK_RPAREN, TOK_UNQUOTEDIDENTIFIER, TOK_QUOTEDIDENTIFIER].includes(prev)) {
-        token = { type: TOK_UNARY_MINUS, value: '-', start: this.current };
-        this.current += 1;
+        this._current += 1;
+      } else if (stream[this._current] === '-' && ![TOK_GLOBAL, TOK_CURRENT, TOK_NUMBER, TOK_RPAREN, TOK_UNQUOTEDIDENTIFIER, TOK_QUOTEDIDENTIFIER, TOK_RBRACKET].includes(prev)) {
+        token = this._consumeUnaryMinus(stream);
         tokens.push(token);
-      } else if (isNum(stream[this.current])) {
-        token = this.consumeNumber(stream);
+      } else if (isNum(stream[this._current])) {
+        token = this._consumeNumber(stream);
         tokens.push(token);
-      } else if (stream[this.current] === "'") {
-        start = this.current;
-        identifier = this.consumeQuotedIdentifier(stream);
+      } else if (stream[this._current] === '[') {
+        // No need to increment this._current.  This happens
+        // in _consumeLBracket
+        token = this._consumeLBracket(stream);
+        tokens.push(token);
+      } else if (stream[this._current] === '"') {
+        start = this._current;
+        identifier = this._consumeQuotedIdentifier(stream);
         tokens.push({
           type: TOK_QUOTEDIDENTIFIER,
           value: identifier,
           start,
         });
-      } else if (stream[this.current] === '"') {
-        start = this.current;
-        identifier = this.consumeRawStringLiteral(stream);
+      } else if (stream[this._current] === "'") {
+        start = this._current;
+        identifier = this._consumeRawStringLiteral(stream);
         tokens.push({
           type: TOK_LITERAL,
           value: identifier,
           start,
         });
-      } else if (operatorStartToken[stream[this.current]] !== undefined) {
-        tokens.push(this.consumeOperator(stream));
-      } else if (skipChars[stream[this.current]] !== undefined) {
+      } else if (stream[this._current] === '`') {
+        start = this._current;
+        const literal = this._consumeLiteral(stream);
+        tokens.push({
+          type: TOK_LITERAL,
+          value: literal,
+          start,
+        });
+      } else if (operatorStartToken[stream[this._current]] !== undefined) {
+        tokens.push(this._consumeOperator(stream));
+      } else if (skipChars[stream[this._current]] !== undefined) {
         // Ignore whitespace.
-        this.current += 1;
-      } else if (stream[this.current] === '&') {
-        tokens.push({ type: TOK_CONCATENATE, value: '&', start: this.current });
-        this.current += 1;
-      } else if (stream[this.current] === '+') {
-        tokens.push({ type: TOK_ADD, value: '+', start: this.current });
-        this.current += 1;
-      } else if (stream[this.current] === '-') {
-        tokens.push({ type: TOK_SUBTRACT, value: '-', start: this.current });
-        this.current += 1;
-      } else if (stream[this.current] === '*') {
-        tokens.push({ type: TOK_MULTIPLY, value: '*', start: this.current });
-        this.current += 1;
-      } else if (stream[this.current] === '/') {
-        tokens.push({ type: TOK_DIVIDE, value: '/', start: this.current });
-        this.current += 1;
+        this._current += 1;
+      } else if (stream[this._current] === '&') {
+        start = this._current;
+        this._current += 1;
+        if (stream[this._current] === '&') {
+          this._current += 1;
+          tokens.push({ type: TOK_AND, value: '&&', start });
+        } else if (prev === TOK_COMMA || prev === TOK_LPAREN) {
+          // based on previous token we'll know if this & is a JMESPath expression-type
+          // or if it's a concatenation operator
+          // if we're a function arg then it's an expression-type
+          tokens.push({ type: TOK_EXPREF, value: '&', start });
+        } else {
+          tokens.push({ type: TOK_CONCATENATE, value: '&', start });
+        }
+      } else if (stream[this._current] === '~') {
+        start = this._current;
+        this._current += 1;
+        tokens.push({ type: TOK_UNION, value: '~', start });
+      } else if (stream[this._current] === '+') {
+        start = this._current;
+        this._current += 1;
+        tokens.push({ type: TOK_ADD, value: '+', start });
+      } else if (stream[this._current] === '-') {
+        start = this._current;
+        this._current += 1;
+        tokens.push({ type: TOK_SUBTRACT, value: '-', start });
+      } else if (stream[this._current] === '*') {
+        start = this._current;
+        this._current += 1;
+        // based on previous token we'll know if this asterix is a star -- not a multiply
+        // might be better to list the prev tokens that are valid for multiply?
+        const prevToken = tokens.length && tokens.slice(-1)[0].type;
+        if (tokens.length === 0 || [
+          TOK_LBRACKET,
+          TOK_DOT,
+          TOK_PIPE,
+          TOK_AND,
+          TOK_OR,
+          TOK_COMMA,
+          TOK_COLON,
+        ].includes(prevToken)) {
+          tokens.push({ type: TOK_STAR, value: '*', start });
+        } else {
+          tokens.push({ type: TOK_MULTIPLY, value: '*', start });
+        }
+      } else if (stream[this._current] === '/') {
+        start = this._current;
+        this._current += 1;
+        tokens.push({ type: TOK_DIVIDE, value: '/', start });
+      } else if (stream[this._current] === '^') {
+        start = this._current;
+        this._current += 1;
+        tokens.push({ type: TOK_POWER, value: '^', start });
+      } else if (stream[this._current] === '|') {
+        start = this._current;
+        this._current += 1;
+        if (stream[this._current] === '|') {
+          this._current += 1;
+          tokens.push({ type: TOK_OR, value: '||', start });
+        } else {
+          tokens.push({ type: TOK_PIPE, value: '|', start });
+        }
       } else {
-        const error = new Error(`Unknown character:${stream[this.current]}`);
+        const error = new Error(`Unknown character:${stream[this._current]}`);
         error.name = 'LexerError';
         throw error;
       }
@@ -147,76 +240,76 @@ export default class Lexer {
     return tokens;
   }
 
-  consumeUnquotedIdentifier(stream) {
-    const start = this.current;
-    this.current += 1;
-    while (this.current < stream.length && isAlphaNum(stream[this.current])) {
-      this.current += 1;
+  _consumeUnquotedIdentifier(stream) {
+    const start = this._current;
+    this._current += 1;
+    while (this._current < stream.length && isAlphaNum(stream[this._current])) {
+      this._current += 1;
     }
-    return stream.slice(start, this.current);
+    return stream.slice(start, this._current);
   }
 
-  consumeQuotedIdentifier(stream) {
-    const start = this.current;
-    this.current += 1;
+  _consumeQuotedIdentifier(stream) {
+    const start = this._current;
+    this._current += 1;
     const maxLength = stream.length;
     let foundNonAlpha = !isIdentifier(stream, start + 1);
-    while (stream[this.current] !== "'" && this.current < maxLength) {
-      // You can escape a quote and you can escape an escape.
-      let { current } = this;
+    while (stream[this._current] !== '"' && this._current < maxLength) {
+      // You can escape a double quote and you can escape an escape.
+      let current = this._current;
       if (!isAlphaNum(stream[current])) foundNonAlpha = true;
       if (stream[current] === '\\' && (stream[current + 1] === '\\'
-        || stream[current + 1] === "'")) {
+                                             || stream[current + 1] === '"')) {
         current += 2;
       } else {
         current += 1;
       }
-      this.current = current;
+      this._current = current;
     }
-    this.current += 1;
-    const val = stream.slice(start, this.current);
+    this._current += 1;
+    const val = stream.slice(start, this._current);
     // Check for unnecessary double quotes.
     // json-formula uses double quotes to escape characters that don't belong in names names.
-    // e.g. 'purchase-order'.address
-    // If we find a quoted entity with spaces or all legal characters, issue a warning
+    // e.g. "purchase-order".address
+    // If we find a double-quoted entity with spaces or all legal characters, issue a warning
     try {
       if (!foundNonAlpha || val.includes(' ')) {
         this.debug.push(`Suspicious quotes: ${val}`);
-        this.debug.push(`Did you intend a literal? '${val.replace(/'/g, '')}'?`);
+        this.debug.push(`Did you intend a literal? '${val.replace(/"/g, '')}'?`);
       }
-      // eslint-disable-next-line no-empty
-    } catch (e) { }
-    return val.substring(1, val.length - 1);
+    // eslint-disable-next-line no-empty
+    } catch (e) {}
+    return JSON.parse(val);
   }
 
-  consumeRawStringLiteral(stream) {
-    const start = this.current;
-    this.current += 1;
+  _consumeRawStringLiteral(stream) {
+    const start = this._current;
+    this._current += 1;
     const maxLength = stream.length;
-    while (stream[this.current] !== '"' && this.current < maxLength) {
+    while (stream[this._current] !== "'" && this._current < maxLength) {
       // You can escape a single quote and you can escape an escape.
-      let { current } = this;
+      let current = this._current;
       if (stream[current] === '\\' && (stream[current + 1] === '\\'
-        || stream[current + 1] === '"')) {
+                                             || stream[current + 1] === "'")) {
         current += 2;
       } else {
         current += 1;
       }
-      this.current = current;
+      this._current = current;
     }
-    this.current += 1;
-    const literal = stream.slice(start + 1, this.current - 1);
-    return literal.replaceAll('\\"', '"');
+    this._current += 1;
+    const literal = stream.slice(start + 1, this._current - 1);
+    return literal.replaceAll("\\'", "'");
   }
 
-  consumeNumber(stream) {
-    const start = this.current;
-    this.current += 1;
+  _consumeNumber(stream) {
+    const start = this._current;
+    this._current += 1;
     const maxLength = stream.length;
-    while (isNum(stream[this.current]) && this.current < maxLength) {
-      this.current += 1;
+    while (isNum(stream[this._current]) && this._current < maxLength) {
+      this._current += 1;
     }
-    const n = stream.slice(start, this.current);
+    const n = stream.slice(start, this._current);
     let value;
     if (n.includes('.')) {
       value = parseFloat(n);
@@ -226,33 +319,130 @@ export default class Lexer {
     return { type: TOK_NUMBER, value, start };
   }
 
-  consumeOperator(stream) {
-    const start = this.current;
+  _consumeUnaryMinus() {
+    const start = this._current;
+    this._current += 1;
+    return { type: TOK_UNARY_MINUS, value: '-', start };
+  }
+
+  _consumeLBracket(stream) {
+    const start = this._current;
+    this._current += 1;
+    if (stream[this._current] === '?') {
+      this._current += 1;
+      return { type: TOK_FILTER, value: '[?', start };
+    }
+    if (stream[this._current] === ']') {
+      this._current += 1;
+      return { type: TOK_FLATTEN, value: '[]', start };
+    }
+    return { type: TOK_LBRACKET, value: '[', start };
+  }
+
+  _isGlobal(prev, stream, pos) {
+    // global tokens occur only at the start of an expression
+    if (prev !== null && prev === TOK_DOT) return false;
+    const ch = stream[pos];
+    if (ch !== globalStartToken) return false;
+    // $ is special -- it's allowed to be part of an identifier if it's the first character
+    let i = pos + 1;
+    while (i < stream.length && isAlphaNum(stream[i])) i += 1;
+    const global = stream.slice(pos, i);
+    return this._allowedGlobalNames.includes(global);
+  }
+
+  _consumeGlobal(stream) {
+    const start = this._current;
+    this._current += 1;
+    while (this._current < stream.length && isAlphaNum(stream[this._current])) this._current += 1;
+    const global = stream.slice(start, this._current);
+
+    return { type: TOK_GLOBAL, name: global, start };
+  }
+
+  _consumeOperator(stream) {
+    const start = this._current;
     const startingChar = stream[start];
-    this.current += 1;
-    if (startingChar === '<') {
-      if (stream[this.current] === '=') {
-        this.current += 1;
-        return { type: TOK_LTE, value: '<=', start };
+    this._current += 1;
+    if (startingChar === '!') {
+      if (stream[this._current] === '=') {
+        this._current += 1;
+        return { type: TOK_NE, value: '!=', start };
       }
-      if (stream[this.current] === '>') {
-        this.current += 1;
-        return { type: TOK_NE, value: '<>', start };
+      return { type: TOK_NOT, value: '!', start };
+    }
+    if (startingChar === '<') {
+      if (stream[this._current] === '=') {
+        this._current += 1;
+        return { type: TOK_LTE, value: '<=', start };
       }
       return { type: TOK_LT, value: '<', start };
     }
     if (startingChar === '>') {
-      if (stream[this.current] === '=') {
-        this.current += 1;
+      if (stream[this._current] === '=') {
+        this._current += 1;
         return { type: TOK_GTE, value: '>=', start };
       }
       return { type: TOK_GT, value: '>', start };
     }
     // startingChar is '='
-    if (stream[this.current] === '=') {
-      this.current += 1;
+    if (stream[this._current] === '=') {
+      this._current += 1;
       return { type: TOK_EQ, value: '==', start };
     }
     return { type: TOK_EQ, value: '=', start };
+  }
+
+  _consumeLiteral(stream) {
+    function _looksLikeJSON(str) {
+      if (str === '') return false;
+      if ('[{"'.includes(str[0])) return true;
+      if (['true', 'false', 'null'].includes(str)) return true;
+
+      if ('-0123456789'.includes(str[0])) {
+        try {
+          JSON.parse(str);
+          return true;
+        } catch (ex) {
+          return false;
+        }
+      } else {
+        return false;
+      }
+    }
+
+    this._current += 1;
+    const start = this._current;
+    const maxLength = stream.length;
+    let literal;
+    let inQuotes = false;
+    while ((inQuotes || stream[this._current] !== '`') && this._current < maxLength) {
+      let current = this._current;
+      // bypass escaped double quotes when we're inside quotes
+      if (inQuotes && stream[current] === '\\' && stream[current + 1] === '"') current += 2;
+      else {
+        if (stream[current] === '"') inQuotes = !inQuotes;
+        if (inQuotes && stream[current + 1] === '`') current += 2;
+        else if (stream[current] === '\\' && (stream[current + 1] === '\\'
+                                              || stream[current + 1] === '`')) {
+        // You can escape a literal char or you can escape the escape.
+          current += 2;
+        } else {
+          current += 1;
+        }
+      }
+      this._current = current;
+    }
+    let literalString = stream.slice(start, this._current).trimStart();
+    literalString = literalString.replaceAll('\\`', '`');
+    if (_looksLikeJSON(literalString)) {
+      literal = JSON.parse(literalString);
+    } else {
+      // Try to JSON parse it as "<literal>"
+      literal = JSON.parse(`"${literalString}"`);
+    }
+    // +1 gets us to the ending "`", +1 to move on to the next char.
+    this._current += 1;
+    return literal;
   }
 }
