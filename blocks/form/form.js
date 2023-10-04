@@ -16,7 +16,7 @@ const formatFns = await (async function imports() {
 }());
 
 function constructPayload(form) {
-  const payload = { __id__: generateUnique() };
+  const payload = { };
   [...form.elements].forEach((fe) => {
     if (fe.name) {
       if (fe.type === 'radio') {
@@ -134,8 +134,8 @@ function createFieldWrapper(fd, tagName = 'div') {
   if (fd.Mandatory === true || fd.Mandatory?.toLowerCase() === 'true') {
     fieldWrapper.dataset.required = '';
   }
-  if (fd.Hidden === true || fd.Hidden?.toLowerCase() === 'true') {
-    fieldWrapper.dataset.hidden = 'true';
+  if (!fd.Visible) {
+    fieldWrapper.dataset.visible = 'false';
   }
   fieldWrapper.classList.add('field-wrapper');
   fieldWrapper.append(createLabel(fd));
@@ -337,7 +337,7 @@ async function fetchForm(pathname) {
 
 async function createForm(formURL) {
   const { pathname } = new URL(formURL);
-  const data = await fetchForm(pathname);
+  const data = await fetchForm(formURL);
   const form = document.createElement('form');
   data.forEach((fd) => {
     const el = renderField(fd);

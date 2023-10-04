@@ -24,7 +24,7 @@ function getDeps(ast) {
 }
 
 export default function transformRule({ prop, expression }, fieldToCellMap, formula) {
-  const ast = formula.compile(expression.slice);
+  const ast = formula.compile(expression);
   const [newAst, deps] = getDeps(ast);
   return {
     prop,

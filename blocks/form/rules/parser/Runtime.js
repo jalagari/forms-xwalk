@@ -12,7 +12,7 @@ const {
 } = dataTypes;
 
 
-class Runtime {
+export default class Runtime {
   constructor(debug, toNumber, customFunctions = {}) {
     this.strictDeepEqual = strictDeepEqual;
     this.toNumber = toNumber;

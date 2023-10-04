@@ -1,7 +1,6 @@
 import Parser from './Parser.js';
 import TreeInterpreter from './TreeInterpreter.js';
 import Runtime from './Runtime.js';
-import TreeInterpreter from './TreeInterpreter.js';
 import dataTypes from './dataTypes.js';
 
 // Type constants used to define functions.

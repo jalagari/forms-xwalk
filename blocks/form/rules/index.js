@@ -1,7 +1,7 @@
 export function getRules(fd) {
   const entries = [
     ['Value', fd?.['Value Expression']],
-    ['Hidden', fd?.['Hidden Expression']],
+    ['Visible', fd?.['Visible Expression']],
     ['Label', fd?.['Label Expression']],
   ];
   return entries.filter((e) => e[1]).map(([prop, expression]) => ({

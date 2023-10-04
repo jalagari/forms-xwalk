@@ -120,7 +120,7 @@ export default class RuleEngine {
         stack.push(...this.dependencyTree[el].deps.Value);
       }
       // eslint-disable-next-line no-loop-func
-      this.dependencyTree[el]?.deps.Hidden?.forEach((field) => {
+      this.dependencyTree[el]?.deps.Visible?.forEach((field) => {
         arr[field] = index;
         index += 1;
       });
@@ -153,13 +153,13 @@ export default class RuleEngine {
   }
 
   // eslint-disable-next-line class-methods-use-this
-  updateHidden(fieldId, value) {
+  updateVisible(fieldId, value) {
     const element = document.getElementById(fieldId);
     let wrapper = element;
     if (!isFieldset(element)) {
       wrapper = element.closest('.field-wrapper');
     }
-    wrapper.dataset.hidden = value;
+    wrapper.dataset.visible = value;
   }
 
   // eslint-disable-next-line class-methods-use-this
@@ -181,7 +181,7 @@ export default class RuleEngine {
   applyRules(rules) {
     rules.forEach((fId) => {
       this.formRules[fId]?.forEach((rule) => {
-        const newValue = this.formula.evaluate(rule.ast, this.data);
+        const newValue = this.formula.search(rule.ast, this.data);
         const handler = this[`update${rule.prop}`];
         if (handler instanceof Function) {
           handler.apply(this, [fId, newValue]);
