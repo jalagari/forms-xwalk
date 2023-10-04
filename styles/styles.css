@@ -316,3 +316,43 @@ main .section[data-section-status='loading'],
 main .section[data-section-status='initialized'] {
   display: none;
 }
+
+main ul {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: normal;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
+main ul li {
+  flex-basis: 260px;
+  margin: 0 0 2rem;
+  padding-right: 14px;
+}
+
+main ul li p {
+  color: dimgray;
+    display: block;
+    font-size: var(--fontSizeSmall,14px);
+    margin-top: 1rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+    width: 260px;
+}
+
+main ul li img {
+  height: 200px;
+  margin: 0;
+  -o-object-fit: cover;
+  object-fit: cover;
+  -o-object-position: center;
+  object-position: center;
+  overflow: hidden;
+  width: 100%;
+}
