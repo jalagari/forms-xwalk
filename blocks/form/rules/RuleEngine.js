@@ -19,6 +19,7 @@ export function sanitizeHTML(input) {
 }
 
 function coerceValue(val) {
+  return val; // To avoid Xwalk data type issue
   if (val === 'true') return true;
   if (val === 'false') return false;
   return val;
