@@ -134,7 +134,7 @@ function createFieldWrapper(fd, tagName = 'div') {
   if (fd.Mandatory === true || fd.Mandatory?.toLowerCase() === 'true') {
     fieldWrapper.dataset.required = '';
   }
-  fieldWrapper.dataset.visible = fd.Visible || 'true';
+  fieldWrapper.dataset.visible = fd.Visible === true || ( fd.Visible ?? true );
   fieldWrapper.classList.add('field-wrapper');
   fieldWrapper.append(createLabel(fd));
   return fieldWrapper;
