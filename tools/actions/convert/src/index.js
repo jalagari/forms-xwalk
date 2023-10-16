@@ -21,7 +21,7 @@ import { mapInbound } from './modules/mapping.js';
 import converterCfg from '../converter.yaml';
 import transformAFToFranklinJSON from './forms/transform.js';
 import { generateAFJSONResource, getFormModelPath } from './forms/util.js';
-import isBinary from './modules/utils/media-utils.js';
+import isBinary, { isJSON } from './modules/utils/media-utils.js';
 
 
 export async function render(path, params, cfg = converterCfg) {
@@ -34,7 +34,7 @@ export async function render(path, params, cfg = converterCfg) {
     url.searchParams.set('wcmmode', wcmmode);
   }
 
-  console.log('Received request for', url.toString());
+  console.log('Received request for', path);
   console.log('Authorization', authorization);
   const headers = { 'cache-control': 'no-cache' };
   if (authorization) {
@@ -58,26 +58,28 @@ export async function render(path, params, cfg = converterCfg) {
     const data = Buffer.from(await resp.arrayBuffer());
     return { data, respHeaders };
   }
-  let json, md, html, formUrls;
 
-  if(path.endsWith('.json')) {
-    json = await resp.json();
+  let json, md, html, formUrls;
+  if (isJSON(contentType)) {
+    json = JSON.parse(await resp.text());
     if(model !== 'true') {
+      console.log('Transforming AEM Forms JSON to Franklin JSON');
       json = transformAFToFranklinJSON(json);
     }
-  } else {
-    const text = await resp.text();
-    const { document } = new jsdom.JSDOM(text, { url }).window;
-    md = await WebImporter.html2md(url, document, transformCfg);
-    ({html, formUrls} = md2html(md));
-    console.log('Form URLs', formUrls);
-    for (const formUrl of formUrls) {
-      console.log('Generating form JSON for', formUrl);
-      await generateAFJSONResource(formUrl, headers);
-    }
+    return {json, respHeaders}
+  }
+
+  const text = await resp.text();
+  const { document } = new jsdom.JSDOM(text, { url }).window;
+  md = await WebImporter.html2md(url, document, transformCfg);
+  ({html, formUrls} = md2html(md));
+  console.log('Form URLs', formUrls);
+  for (const formUrl of formUrls) {
+    console.log('Generating form JSON for', formUrl);
+    await generateAFJSONResource(formUrl, headers);
   }
   console.log('Request succeeded for', url.toString(), `with status ${resp.status}`);
-  return { md, html, json, respHeaders };
+  return { md, html, respHeaders };
 
 }
 
@@ -85,9 +87,10 @@ export async function main(params) {
   const path = params.__ow_path ? params.__ow_path : '';
   const authorization = params.__ow_headers ? params.__ow_headers.authorization : '';
 
-  console.log('Received request for', path);
   const { data, json, html, error, respHeaders } = await render(path, { ...params, authorization });
-  const body = isBinary(respHeaders['content-type']) ? data.toString('base64') : html;
+  let body = html;
+  if(isBinary(respHeaders['content-type'])) body = data.toString('base64');
+  if(isJSON(respHeaders['content-type'])) body = JSON.stringify(json);
 
   if (!error) {
     return {
@@ -97,7 +100,7 @@ export async function main(params) {
         'x-aem-resource-src': path,
       },
       statusCode: 200,
-      body: body || json,
+      body: body,
     };
   }
 

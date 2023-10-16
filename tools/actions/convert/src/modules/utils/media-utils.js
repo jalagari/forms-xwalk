@@ -17,7 +17,7 @@ const mediaTypes = {
   'application/gnutar': true,
   'application/java-archive': true,
   'application/javascript': false,
-  'application/json': true, // we treat JSON as binary, since its encoding is not variable but defined by RFC4627
+  'application/json': false, // we treat JSON as binary, since its encoding is not variable but defined by RFC4627
   'application/json-patch+json': true, // we treat JSON as binary, since its encoding is not variable but defined by RFC4627
   'application/lha': true,
   'application/lzx': true,
@@ -86,4 +86,8 @@ export default function isBinary(contentType) {
   if (contentType.startsWith('text/') || contentType.startsWith('message/')) return false;
   if (contentType.startsWith('audio/') || contentType.startsWith('image/') || contentType.startsWith('video/')) return true;
   return mediaTypes[contentType];
+}
+
+export function isJSON(contentType) {
+  return contentType.startsWith('application/json');
 }

@@ -17,8 +17,8 @@ import { render } from './index.js';
 import isBinary from './modules/utils/media-utils.js';
 
 const {
-  AEM_USER,
-  AEM_PASSWORD,
+  AEM_USER = 'admin',
+  AEM_PASSWORD = '[@MuFdwX[rkx86{VHgl+7a+N',
 } = process.env;
 const app = express();
 const port = 3030;
