@@ -15,6 +15,7 @@ class TransformAFToFranklinJSON {
 
   errors = [];
 
+  supportedRules = ['visible', 'value'];
   supportedFields = [ 'name', 'description', 'placeholder' ,
   'default', 'value',
   'displayFormat',
@@ -35,7 +36,13 @@ class TransformAFToFranklinJSON {
     enumNames: 'Option Names',
   };
 
+  rulesMapping = {
+    visible: 'Visible Expression',
+    value: 'Value Expression',
+  }
+
   fieldMapping = new Map([
+    ['SUBMIT', 'submit'],
     ['text-input', 'text'],
     ['number-input', 'number'],
     ['date-input', 'date'],
@@ -89,11 +96,13 @@ class TransformAFToFranklinJSON {
         const field = {
           Fieldset: parentName,
          };
-         this.#copyProperties(item, field);
+         this.#copyProperties(field, item);
+         this.#handleRules(field, item);
          this.data.push(field);
          if (this.#isPanel(item)) {
            this.#transform(item[this.ITEMS], item.name);
          } else {
+           this.#handleCheckbox(field, item);
            this.#handleOptions(field);
            this.#handlePlainTextField(field, item);
            this.#handleSubmitButton(field, item)
@@ -102,15 +111,15 @@ class TransformAFToFranklinJSON {
     }
   }
 
-  #copyProperties(source, target) {
-    this.supportedFields.forEach((field) => {
-      if (source[field]) {
-        const key = this.fieldPropertyMapping[field] || this.#camelCaseToWords(field);
-        target[key] = source[field];
+  #copyProperties(field, item) {
+    this.supportedFields.forEach((key) => {
+      if (item[key] !== undefined) {
+        const updateKey = this.fieldPropertyMapping[key] || this.#camelCaseToWords(key);
+        field[updateKey] = item[key];
       }
     });
-    target.Label = source?.label?.value || source?.title;
-    target.Type = this.#getFieldType(source.fieldType || source.type);
+    field.Label = item?.label?.value || item?.title;
+    field.Type = this.#getFieldType(item.fieldType || item.type);
   }
 
   #handleSubmitButton(field, item) {
@@ -128,6 +137,12 @@ class TransformAFToFranklinJSON {
       field["Option Names"] = field["Option Names"].join(',');
     }
   }  
+
+  #handleCheckbox(field, item) { 
+    if (field.Type === 'checkbox') {
+      field.Value = item.value || true;
+    }
+  }
 
   #handlePlainTextField(field, item) {
     if (!field.Type || field.Type === this.PLAIN_TEXT) {
@@ -149,6 +164,21 @@ class TransformAFToFranklinJSON {
           field.Value = enumValues?.[index] || option;
           this.data.push(field);
       });
+    }
+  }
+
+  #transformExpression(expression) {
+    return expression.replace(/.\$value/g, '');
+  }
+
+  #handleRules(field, item) {
+    if (item.rules) {
+      const rules = item.rules;
+      for (const [key, value] of Object.entries(rules)) {
+        if (this.supportedRules.includes(key)) {
+          field[this.rulesMapping[key]] = this.#transformExpression(value);
+        }
+      }
     }
   }
 

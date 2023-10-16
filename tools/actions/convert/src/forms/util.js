@@ -47,17 +47,28 @@ export async function generateAFJSONResource(path, headers) {
         }
         var requestOptions = {
             method: 'POST',
-            headers: headers
+            headers: {
+                ...headers,
+                'X-OW-EXTRA-LOGGING': 'ON',
+            }
         };
-    
-        const url = `https://admin.hlx.page/preview/jalagari/forms-xwalk/main${path}`;
-        const resp = await fetch(url, requestOptions)
-
-        if (!resp.ok) {
-            console.log('JSON Content generation failed for', url, `with status ${resp.status}`, resp.headers);
-            console.log(`Response: ${resp.statusText}`, requestOptions)
-        } else {
-            console.log('JSON Content generation Response', resp.status, `for ${path}`);
-        }
+        await pushToEdge(path, headers, requestOptions);
+        await pushToEdge(path, headers, requestOptions, false);
+       
     }
+}
+
+async function pushToEdge(path, headers, requestOptions, stage = true ) {
+    const platform = stage ? 'preview' : 'live';
+    console.log('Initiating Edge API for content pull for ', path, ' on ', platform);
+    const url = `https://admin.hlx.page/${platform}/jalagari/forms-xwalk/main${path}`;
+    const resp = await fetch(url, requestOptions)
+
+    if (!resp.ok) {
+        console.log('JSON Content publish to Edge failed', url, `with status ${resp.status}`, resp.headers);
+        console.log(`Response: ${resp.statusText}`, requestOptions)
+    } else {
+        console.log('JSON Content publish to Edge -', platform, resp.status, `for ${path}`);
+    }
+
 }
