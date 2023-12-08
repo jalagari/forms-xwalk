@@ -1,6 +1,7 @@
 import {
   createButton, createFieldWrapper, createLabel,
 } from './util.js';
+import {enableRuleEngine} from './rules/index.js';
 
 function generateUnique() {
   return new Date().valueOf() + Math.random();
@@ -276,7 +277,7 @@ async function fetchForm(pathname) {
   // get the main form
   const resp = await fetch(pathname);
   const json = await resp.json();
-  return json.data;
+  return json;
 }
 
 function colSpanDecorator(field, element) {
@@ -328,7 +329,7 @@ function applyLayout(panel, element) {
   }
 }
 
-export async function generateFormRendition(panel, container) {
+export function generateFormRendition(panel, container) {
   const { ':items': items = [] } = panel;
   // eslint-disable-next-line no-unused-vars
   Object.entries(items).forEach(([key, field]) => {
@@ -373,13 +374,12 @@ function updateorCreateInvalidMsg(fieldElement) {
   return element;
 }
 
-export async function createForm(formDef, block) {
+export function createForm(formDef) {
   const { action: formPath } = formDef;
   const form = document.createElement('form');
   form.dataset.action = formPath;
   form.noValidate = true;
-  await generateFormRendition(formDef, form);
-  const transformRequest = await applyTransformation(formDef, form, block);
+  generateFormRendition(formDef, form);
   form.querySelectorAll('input,textarea,select').forEach((el) => {
     el.addEventListener('invalid', () => updateorCreateInvalidMsg(el));
     el.addEventListener('change', () => updateorCreateInvalidMsg(el));
@@ -416,7 +416,7 @@ export default async function decorate(block) {
     }
   }
   if (formDef) {
-    form = await createForm(formDef, block);
+    const form = await enableRuleEngine(formDef, createForm);
     container.replaceWith(form);
   }
 }
