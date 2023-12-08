@@ -1,5 +1,5 @@
 mountpoints:
   /:
     url: https://283250-formsxwalk-stage.adobeioruntime.net/api/v1/web/main/convert/
-    type: markup
-    suffix: ".html?wcmmode=disabled"
+    type: "markup"
+    suffix: ""

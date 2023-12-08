@@ -9,94 +9,27 @@
  * OF ANY KIND, either express or implied. See the License for the specific language
  * governing permissions and limitations under the License.
  */
+
 /* global WebImporter */
-/* eslint-disable no-console, class-methods-use-this */
+/* eslint-disable class-methods-use-this */
+/* eslint-disable no-await-in-loop */
+/* eslint-disable no-restricted-syntax */
+
+import DomBuilder from './dom-builder.js';
 
 // helix-importer-ui <-> node compatibility:
 if (window) window.decodeHtmlEntities = (text) => text; // not-needed in browser
 
-const aemURL = `https://publish-p10652-e192853-cmstg.adobeaemcloud.com`;
-const submitEndpoint = `/adobe/forms/af/submit/`;
+const TRANSFORMERS = [
+  {
+    pattern: /.*/,
+    transformers: [
+      'transform-forms.js',
+    ],
+  },
+];
 
-const getFormBlock = (document, formPath, formId) => {
-  const formLink = formPath.replace('jcr:content', 'jcrcontent').replace('guideContainer','guidecontainer') + '.json';
-  const cells = [
-    ['Form'],
-    [ `<a href="${formLink}">${formLink}</a>`],
-    ['submit', `${aemURL}${submitEndpoint}${formId}`]
-  ]; 
- 
-  return WebImporter.DOMUtils.createTable(cells, document);
-}
-
-const transformForm = (main, document) => {
-
-  const aemforms = document.querySelectorAll("form.cmp-adaptiveform-container")
-  aemforms?.forEach((aemform) => {
-    const {id, dataset: { cmpPath : formPath }} = aemform;
-    if (formPath) {
-      const table = getFormBlock(document, formPath, id);
-      aemform.replaceWith(table);
-    }
-  });
-
-  const siteForms = document.querySelectorAll(".cmp-form");
-  siteForms?.forEach((siteForm) => {
-    if (siteForm && siteForm.tagName === 'FORM') {
-      const path = siteForm.elements[':formstart']?.value;
-      const table = getFormBlock(document, path);
-      siteForm.replaceWith(table);
-    }
-  });
-}
-
-const createMetadata = (main, document) => {
-  const meta = {};
-
-  const title = document.querySelector('title');
-  if (title) {
-    meta.Title = title.textContent.replace(/[\n\t]/gm, '');
-  }
-
-  const desc = document.querySelector('[property="og:description"]');
-  if (desc) {
-    meta.Description = desc.content;
-  }
-
-  const img = document.querySelector('[property="og:image"]');
-  if (img && img.content) {
-    const el = document.createElement('img');
-    el.src = img.content;
-    meta.Image = el;
-  }
-
-  const block = WebImporter.Blocks.getMetadataBlock(document, meta);
-  main.append(block);
-
-  return meta;
-};
-
-const createCarousel = (main, document) => {
-  const carouselItems = [];
-
-  const carousel = document.querySelector('.carousel');
-  if (carousel) {
-    const items = carousel.querySelectorAll('.cmp-carousel__item');
-    items.forEach((item) => {
-      const img = item.querySelector('img');
-      const text = item.querySelector('.cmp-teaser__content');
-      if (img && text) {
-        carouselItems.push([img, text]);
-      }
-    });
-    const cells = [
-      ['Carousel'],
-      ...carouselItems
-    ];
-    const block = WebImporter.DOMUtils.createTable(cells, document);
-    main.prepend(block);
-  }
-};
+let count = 0;
 
 export default {
   /**
@@ -113,18 +46,37 @@ export default {
     document, url, html, params,
   }) => {
     // define the main element: the one that will be transformed to Markdown
+    const { pathname } = new URL(url);
     const main = document.body;
-    transformForm(main, document);
-    createCarousel(main, document);
+    const topLevelGrid = main;
+    const dom = new DomBuilder(document);
 
-    // use helper method to remove header, footer, etc.
-    WebImporter.DOMUtils.remove(main, [
-      'header',
-      'footer',
-    ]);
+    const moduleUrl = new URL(import.meta.url);
+    const moduleSearch = moduleUrl.search ? `?${count += 1}` : '';
 
-    // create the metadata block and append it to the main element
-    createMetadata(main, document);
+    for (const def of TRANSFORMERS) {
+      const { pattern, transformers } = def;
+      if (pathname.match(pattern)) {
+        for (const file of transformers) {
+          let transformFn;
+          if (typeof file === 'function') {
+            transformFn = file;
+          } else {
+            const transformerModule = await import(`./transformers/${file}${moduleSearch}`);
+            transformFn = transformerModule.default;
+          }
+          await transformFn({
+            main,
+            pathname,
+            document,
+            dom,
+            params,
+            url,
+            topLevelGrid,
+          });
+        }
+      }
+    }
 
     return main;
   },

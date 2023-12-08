@@ -1,22 +1,22 @@
-import { readBlockConfig } from '../../scripts/lib-franklin.js';
+import {
+  createButton, createFieldWrapper, createLabel,
+} from './util.js';
+
+/**
+   * Returns the true origin of the current page in the browser.
+   * If the page is running in a iframe with srcdoc, the ancestor origin is returned.
+   * @returns {String} The true origin
+   */
+function getOrigin() {
+  return window.location.href === 'about:srcdoc' ? window.parent.location.origin : window.location.origin;
+}
 
 function generateUnique() {
   return new Date().valueOf() + Math.random();
 }
 
-const formatFns = await (async function imports() {
-  try {
-    const formatters = await import('./formatting.js');
-    return formatters.default;
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.log('Formatting library not found. Formatting will not be supported');
-  }
-  return {};
-}());
-
-function constructPayload(form) {
-  const payload = { };
+export function constructPayload(form) {
+  const payload = { __id__: generateUnique() };
   [...form.elements].forEach((fe) => {
     if (fe.name) {
       if (fe.type === 'radio') {
@@ -32,6 +32,7 @@ function constructPayload(form) {
 }
 
 async function submissionFailure(error, form) {
+  // eslint-disable-next-line no-alert
   alert(error); // TODO define error mechansim
   form.setAttribute('data-submitting', 'false');
   form.querySelector('button[type="submit"]').disabled = false;
@@ -42,8 +43,9 @@ async function prepareRequest(form, transformer) {
   const headers = {
     'Content-Type': 'application/json',
   };
+
   const body = JSON.stringify({ data: payload });
-  const url = form.dataset.submit || form.dataset.action;
+  const url = form.dataset.action;
   if (typeof transformer === 'function') {
     return transformer({ headers, body, url }, form);
   }
@@ -77,23 +79,23 @@ async function handleSubmit(form, transformer) {
 }
 
 function setPlaceholder(element, fd) {
-  if (fd.Placeholder) {
-    element.setAttribute('placeholder', fd.Placeholder);
+  if (fd.placeHolder) {
+    element.setAttribute('placeholder', fd.placeHolder);
   }
 }
 
 const constraintsDef = Object.entries({
-  'email|text': [['Max', 'maxlength'], ['Min', 'minlength']],
-  'number|range|date': ['Max', 'Min', 'Step'],
+  'password|tel|email|text': [['maxLength', 'maxlength'], ['minLength', 'minlength'], 'pattern'],
+  'number|range|date': [['maximum', 'Max'], ['minimum', 'Min'], 'step'],
   file: ['Accept', 'Multiple'],
-  fieldset: [['Max', 'data-max'], ['Min', 'data-min']],
+  fieldset: [['maxOccur', 'data-max'], ['minOccur', 'data-min']],
 }).flatMap(([types, constraintDef]) => types.split('|')
   .map((type) => [type, constraintDef.map((cd) => (Array.isArray(cd) ? cd : [cd, cd]))]));
 
 const constraintsObject = Object.fromEntries(constraintsDef);
 
 function setConstraints(element, fd) {
-  const constraints = constraintsObject[fd.Type];
+  const constraints = constraintsObject[fd.renderType];
   if (constraints) {
     constraints
       .filter(([nm]) => fd[nm])
@@ -103,63 +105,26 @@ function setConstraints(element, fd) {
   }
 }
 
-function createLabel(fd, tagName = 'label') {
-  const label = document.createElement(tagName);
-  label.setAttribute('for', fd.Id);
-  label.className = 'field-label';
-  label.textContent = fd.Label || '';
-  if (fd.Tooltip) {
-    label.title = fd.Tooltip;
-  }
-  return label;
-}
-
 function createHelpText(fd) {
   const div = document.createElement('div');
   div.className = 'field-description';
   div.setAttribute('aria-live', 'polite');
-  div.innerText = fd.Description;
-  div.id = `${fd.Id}-description`;
+  div.innerHTML = fd.description;
+  div.id = `${fd.id}-description`;
   return div;
 }
 
-function createFieldWrapper(fd, tagName = 'div') {
-  const fieldWrapper = document.createElement(tagName);
-  const nameStyle = fd.Name ? ` form-${fd.Name}` : '';
-  const fieldId = `form-${fd.Type}-wrapper${nameStyle}`;
-  fieldWrapper.className = fieldId;
-  if (fd.Fieldset) {
-    fieldWrapper.dataset.fieldset = fd.Fieldset;
-  }
-  if (fd.Mandatory === true || fd.Mandatory?.toLowerCase() === 'true') {
-    fieldWrapper.dataset.required = '';
-  }
-  fieldWrapper.dataset.visible = fd.Visible === true || ( fd.Visible ?? true );
-  fieldWrapper.classList.add('field-wrapper');
-  fieldWrapper.append(createLabel(fd));
-  return fieldWrapper;
-}
-
-function createButton(fd) {
-  const wrapper = createFieldWrapper(fd);
-  const button = document.createElement('button');
-  button.textContent = fd.Label;
-  button.type = fd.Type;
-  button.classList.add('button');
-  button.dataset.redirect = fd.Extra || '';
-  button.id = fd.Id;
-  button.name = fd.Name;
-  wrapper.replaceChildren(button);
-  return wrapper;
-}
 function createSubmit(fd) {
   const wrapper = createButton(fd);
+  const button = wrapper.querySelector('button');
+  button.id = '';
+  button.name = ''; // removing id and name from button otherwise form.submit() will not work
   return wrapper;
 }
 
 function createInput(fd) {
   const input = document.createElement('input');
-  input.type = fd.Type;
+  input.type = fd.renderType;
   setPlaceholder(input, fd);
   setConstraints(input, fd);
   return input;
@@ -179,19 +144,41 @@ const createTextArea = withFieldWrapper((fd) => {
 
 const createSelect = withFieldWrapper((fd) => {
   const select = document.createElement('select');
-  if (fd.Placeholder) {
+  if (fd.placeholder) {
     const ph = document.createElement('option');
-    ph.textContent = fd.Placeholder;
+    ph.textContent = fd.placeholder;
     ph.setAttribute('selected', '');
     ph.setAttribute('disabled', '');
+    ph.setAttribute('value', '');
     select.append(ph);
   }
-  fd.Options.split(',').forEach((o) => {
+
+  const addOption = (label, value) => {
     const option = document.createElement('option');
-    option.textContent = o.trim();
-    option.value = o.trim();
+    option.textContent = label?.trim();
+    option.value = value?.trim() || label?.trim();
+    if (fd.value === option.value) {
+      option.setAttribute('selected', '');
+    }
     select.append(option);
-  });
+    return option;
+  };
+  if (fd?.Options && (fd.Options.startsWith('https://') || fd.Options.startsWith('/'))) {
+    const optionsUrl = new URL(fd.Options, getOrigin());
+    fetch(`${optionsUrl.pathname}${optionsUrl.search}`).then((resp) => {
+      if (resp.ok) {
+        resp.json().then((json) => {
+          json.data.forEach((opt) => {
+            addOption(opt.Option, opt.value || opt.Option);
+          });
+        });
+      }
+    });
+  } else {
+    const options = fd?.Options?.split(',') || [];
+    const optionNames = fd?.['Options Name'] ? fd?.['Options Name']?.split(',') : options;
+    options.forEach((value, index) => addOption(optionNames?.[index], value));
+  }
   return select;
 });
 
@@ -203,23 +190,22 @@ function createRadio(fd) {
 
 const createOutput = withFieldWrapper((fd) => {
   const output = document.createElement('output');
-  output.name = fd.Name;
-  output.id = fd.Id;
+  output.name = fd.name;
+  output.id = fd.id;
   const displayFormat = fd['Display Format'];
   if (displayFormat) {
     output.dataset.displayFormat = displayFormat;
   }
-  const formatFn = formatFns[displayFormat] || ((x) => x);
-  output.innerText = formatFn(fd.Value);
+  output.innerText = fd.value;
   return output;
 });
 
 function createHidden(fd) {
   const input = document.createElement('input');
   input.type = 'hidden';
-  input.id = fd.Id;
-  input.name = fd.Name;
-  input.value = fd.Value;
+  input.id = fd.id;
+  input.name = fd.name;
+  input.value = fd.value;
   return input;
 }
 
@@ -229,60 +215,44 @@ function createLegend(fd) {
 
 function createFieldSet(fd) {
   const wrapper = createFieldWrapper(fd, 'fieldset');
-  wrapper.id = fd.Id;
-  wrapper.name = fd.Name;
+  wrapper.id = fd.id;
+  wrapper.name = fd.name;
+  if (fd.id.startsWith('panel-')) {
+    wrapper.classList.add('form-panel-wrapper');
+  }
   wrapper.replaceChildren(createLegend(fd));
   if (fd.Repeatable && fd.Repeatable.toLowerCase() === 'true') {
     setConstraints(wrapper, fd);
-    wrapper.dataset.repeatable = 'true';
+    wrapper.dataset.repeatable = '';
   }
   return wrapper;
 }
 
-function groupFieldsByFieldSet(form) {
-  const fieldsets = form.querySelectorAll('fieldset');
-  fieldsets?.forEach((fieldset) => {
-    const fields = form.querySelectorAll(`[data-fieldset="${fieldset.name}"`);
-    fields?.forEach((field) => {
-      fieldset.append(field);
-    });
-  });
-}
-
 function createPlainText(fd) {
   const paragraph = document.createElement('p');
-  const nameStyle = fd.Name ? `form-${fd.Name}` : '';
-  paragraph.className = nameStyle;
-  paragraph.dataset.fieldset = fd.Fieldset ? fd.Fieldset : '';
-  paragraph.innerHTML = fd.Value;
-  return paragraph;
+  paragraph.textContent = fd.Label;
+  const wrapper = createFieldWrapper(fd);
+  wrapper.id = fd.id;
+  wrapper.replaceChildren(paragraph);
+  return wrapper;
 }
 
-export const getId = (function getId() {
-  const ids = {};
-  return (name) => {
-    ids[name] = ids[name] || 0;
-    const idSuffix = ids[name] ? `-${ids[name]}` : '';
-    ids[name] += 1;
-    return `${name}${idSuffix}`;
-  };
-}());
-
 const fieldRenderers = {
-  radio: createRadio,
+  'drop-down': createSelect,
+  'plain-text': createPlainText,
   checkbox: createRadio,
-  textarea: createTextArea,
-  select: createSelect,
   button: createButton,
+  multiline: createTextArea,
+  panel: createFieldSet,
+  radio: createRadio,
   submit: createSubmit,
   output: createOutput,
   hidden: createHidden,
-  fieldset: createFieldSet,
-  plaintext: createPlainText,
 };
 
 function renderField(fd) {
-  const renderer = fieldRenderers[fd.Type];
+  const fieldType = fd?.fieldType?.replace('-input', '') ?? 'text';
+  const renderer = fieldRenderers[fieldType];
   let field;
   if (typeof renderer === 'function') {
     field = renderer(fd);
@@ -290,18 +260,20 @@ function renderField(fd) {
     field = createFieldWrapper(fd);
     field.append(createInput(fd));
   }
-  if (fd.Description) {
+  if (fd.description) {
     field.append(createHelpText(fd));
+    field.dataset.description = fd.description; // In case overriden by error message
   }
   return field;
 }
 
-async function applyTransformation(formDef, form) {
+async function applyTransformation(formDef, form, block) {
   try {
+    // eslint-disable-next-line import/no-cycle
     const { requestTransformers, transformers } = await import('./decorators/index.js');
     if (transformers) {
       transformers.forEach(
-        (fn) => fn.call(this, formDef, form),
+        (fn) => fn.call(this, formDef, form, block),
       );
     }
 
@@ -317,66 +289,133 @@ async function applyTransformation(formDef, form) {
   return (req) => req;
 }
 
-async function fetchData(url) {
-  const resp = await fetch(url);
-  const json = await resp.json();
-  return json.data.map((fd) => ({
-    ...fd,
-    Id: fd.Id || getId(fd.Name),
-    Value: fd.Value || '',
-  }));
-}
-
 async function fetchForm(pathname) {
   // get the main form
-  const jsonData = await fetchData(pathname);
-  return jsonData;
+  const resp = await fetch(pathname);
+  const json = await resp.json();
+  return json.data;
 }
 
-async function createForm(formURL) {
-  const { pathname } = new URL(formURL);
-  const data = await fetchForm(formURL);
-  const form = document.createElement('form');
-  data.forEach((fd) => {
-    const el = renderField(fd);
-    const input = el.querySelector('input,textarea,select');
-    if (fd.Mandatory === true || fd.Mandatory?.toLowerCase() === 'true') {
+function colSpanDecorator(field, element) {
+  const colSpan = field['Column Span'];
+  if (colSpan && element) {
+    element.classList.add(`col-${colSpan}`);
+  }
+}
+
+function inputDecorator(field, element) {
+  const input = element?.querySelector('input,textarea,select');
+  if (input) {
+    input.id = field.id;
+    input.name = field.name;
+    input.tooltip = field.tooltip;
+    input.readOnly = field.readOnly;
+    input.autocomplete = field.autoComplete ?? 'off';
+    input.disabled = field.enabled === false;
+    if (input.type !== 'file') {
+      input.value = field.default ?? '';
+      if (input.type === 'radio' || input.type === 'checkbox') {
+        input.value = field?.enum?.[0] ?? 'on';
+        input.checked = field.default === input.value;
+      }
+    }
+    if (field.required) {
       input.setAttribute('required', 'required');
     }
-    if (input) {
-      input.id = fd.Id;
-      input.name = fd.Name;
-      if (input.type !== 'file') {
-        input.value = fd.Value;
-        if (input.type === 'radio' || input.type === 'checkbox') {
-          input.checked = fd.Checked === 'true';
-        }
-      }
-      if (fd.Description) {
-        input.setAttribute('aria-describedby', `${fd.Id}-description`);
+    if (field.description) {
+      input.setAttribute('aria-describedby', `${field.id}-description`);
+    }
+  }
+}
+
+export async function generateFormRendition(panel, container) {
+  const { ':items': items, ':type': type } = panel;
+  // eslint-disable-next-line no-unused-vars
+  Object.entries(items).forEach(([key, field]) => {
+    field.renderType = field?.fieldType?.replace('-input', '') ?? 'text';
+    field.value = field.value ?? '';
+    const element = renderField(field);
+    inputDecorator(field, element);
+    colSpanDecorator(field, element);
+    container.append(element);
+    if (type === 'panel') {
+      generateFormRendition(field, element);
+    }
+  });
+}
+
+function getFieldContainer(fieldElement) {
+  const wrapper = fieldElement?.closest('.field-wrapper');
+  let container = wrapper;
+  if ((fieldElement.type === 'radio' || fieldElement.type === 'checkbox') && wrapper.dataset.fieldset) {
+    container = fieldElement?.closest(`fieldset[name=${wrapper.dataset.fieldset}]`);
+  }
+  return container;
+}
+
+function updateorCreateInvalidMsg(fieldElement) {
+  const container = getFieldContainer(fieldElement);
+  let element = container.querySelector(':scope > .field-description');
+  if (!element) {
+    element = createHelpText({ Id: fieldElement.id });
+    container.append(element);
+  }
+  if (fieldElement.validationMessage) {
+    element.classList.add('field-invalid');
+    element.textContent = fieldElement.validationMessage;
+  } else if (container.dataset.description) {
+    element.classList.remove('field-invalid');
+    element.textContent = container.dataset.description;
+  } else if (element) {
+    element.remove();
+  }
+  return element;
+}
+
+async function createForm(formDef, block) {
+  const { action: formPath } = formDef;
+  const form = document.createElement('form');
+  form.dataset.action = formPath;
+  form.noValidate = true;
+  await generateFormRendition(formDef, form);
+  const transformRequest = await applyTransformation(formDef, form, block);
+  form.querySelectorAll('input,textarea,select').forEach((el) => {
+    el.addEventListener('invalid', () => updateorCreateInvalidMsg(el));
+    el.addEventListener('change', () => updateorCreateInvalidMsg(el));
+  });
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const valid = form.checkValidity();
+    if (valid) {
+      e.submitter.setAttribute('disabled', '');
+      handleSubmit(form, transformRequest);
+    } else {
+      const firstInvalidEl = form.querySelector(':invalid:not(fieldset)');
+      if (firstInvalidEl) {
+        firstInvalidEl.focus();
+        firstInvalidEl.scrollIntoView({ behavior: 'smooth' });
       }
     }
-    form.append(el);
-  });
-  groupFieldsByFieldSet(form);
-  const transformRequest = await applyTransformation(data, form);
-  // eslint-disable-next-line prefer-destructuring
-  form.dataset.action = pathname?.split('.json')[0];
-  form.addEventListener('submit', (e) => {
-    e.preventDefault();
-    e.submitter.setAttribute('disabled', '');
-    handleSubmit(form, transformRequest);
   });
   return form;
 }
 
 export default async function decorate(block) {
-  const formLink = block.querySelector('a[href$=".json"]');
-  if (formLink) {
-    const form = await createForm(formLink.href);
-    formLink.replaceWith(form);
-
-    const config = readBlockConfig(block);
-    Object.entries(config).forEach(([key, value]) => { if (value) form.dataset[key] = value; });
+  let container = block.querySelector('a[href$=".json"]');
+  let form; let formDef;
+  if (container) {
+    const { pathname } = new URL(container.href);
+    formDef = await fetchForm(pathname);
+  } else {
+    container = block.querySelector('pre');
+    const codeEl = container?.querySelector('code');
+    const content = codeEl?.textContent;
+    if (content) {
+      formDef = JSON.parse(content?.replace(/\n|\s\s+/g, ''));
+    }
+  }
+  if (formDef) {
+    form = await createForm(formDef, block);
+    container.replaceWith(form);
   }
 }

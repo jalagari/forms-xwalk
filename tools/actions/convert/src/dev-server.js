@@ -10,21 +10,26 @@
  * governing permissions and limitations under the License.
  */
 
-import path from 'path';
-import { pipeline, toMocha } from 'crosswalk-converter';
+/* eslint-disable import/no-extraneous-dependencies */
+/* eslint-disable import/no-relative-packages */
+
+import express from 'express';
+import { toExpress, pipeline } from 'crosswalk-converter';
+import transform from '../../../importer/import.js';
 import converterCfg from '../../../../converter.yaml';
 import mappingCfg from '../../../../paths.yaml';
-import transform from '../../../importer/import.js';
+import headHtml from '../../../../head.html';
 
-describe('Converter', async () => {
-  // eslint-disable-next-line no-undef
-  const fixturesFolder = path.resolve(__testdir, 'fixtures');
-  const testRunner = pipeline().wrap(toMocha, {
-    transform,
-    converterCfg,
-    mappingCfg,
-    fixturesFolder,
-  });
-
-  await testRunner();
+const app = express();
+const port = 3030;
+const handler = pipeline().wrap(toExpress, {
+  port,
+  transform,
+  converterCfg,
+  mappingCfg,
+  headHtml,
 });
+
+app.get('/**', handler);
+// eslint-disable-next-line no-console
+app.listen(port, () => console.log(`Converter listening on port ${port}`));
