@@ -2,15 +2,6 @@ import {
   createButton, createFieldWrapper, createLabel,
 } from './util.js';
 
-/**
-   * Returns the true origin of the current page in the browser.
-   * If the page is running in a iframe with srcdoc, the ancestor origin is returned.
-   * @returns {String} The true origin
-   */
-function getOrigin() {
-  return window.location.href === 'about:srcdoc' ? window.parent.location.origin : window.location.origin;
-}
-
 function generateUnique() {
   return new Date().valueOf() + Math.random();
 }
@@ -87,7 +78,7 @@ function setPlaceholder(element, fd) {
 const constraintsDef = Object.entries({
   'password|tel|email|text': [['maxLength', 'maxlength'], ['minLength', 'minlength'], 'pattern'],
   'number|range|date': [['maximum', 'Max'], ['minimum', 'Min'], 'step'],
-  file: ['Accept', 'Multiple'],
+  file: ['accept', 'Multiple'],
   fieldset: [['maxOccur', 'data-max'], ['minOccur', 'data-min']],
 }).flatMap(([types, constraintDef]) => types.split('|')
   .map((type) => [type, constraintDef.map((cd) => (Array.isArray(cd) ? cd : [cd, cd]))]));
@@ -144,9 +135,13 @@ const createTextArea = withFieldWrapper((fd) => {
 
 const createSelect = withFieldWrapper((fd) => {
   const select = document.createElement('select');
-  if (fd.placeholder) {
+  select.required = fd.required;
+  select.title = fd.tooltip ?? '';
+  select.readOnly = fd.readOnly;
+  select.multiple = fd.type === 'string[]' || fd.type === 'boolean[]' || fd.type === 'number[]';
+  if (fd.placeHolder) {
     const ph = document.createElement('option');
-    ph.textContent = fd.placeholder;
+    ph.textContent = fd.placeHolder;
     ph.setAttribute('selected', '');
     ph.setAttribute('disabled', '');
     ph.setAttribute('value', '');
@@ -163,22 +158,10 @@ const createSelect = withFieldWrapper((fd) => {
     select.append(option);
     return option;
   };
-  if (fd?.Options && (fd.Options.startsWith('https://') || fd.Options.startsWith('/'))) {
-    const optionsUrl = new URL(fd.Options, getOrigin());
-    fetch(`${optionsUrl.pathname}${optionsUrl.search}`).then((resp) => {
-      if (resp.ok) {
-        resp.json().then((json) => {
-          json.data.forEach((opt) => {
-            addOption(opt.Option, opt.value || opt.Option);
-          });
-        });
-      }
-    });
-  } else {
-    const options = fd?.Options?.split(',') || [];
-    const optionNames = fd?.['Options Name'] ? fd?.['Options Name']?.split(',') : options;
-    options.forEach((value, index) => addOption(optionNames?.[index], value));
-  }
+
+  const options = fd?.enum || [];
+  const optionNames = fd?.enumNames ?? options;
+  options.forEach((value, index) => addOption(optionNames?.[index], value));
   return select;
 });
 
@@ -318,6 +301,8 @@ function inputDecorator(field, element) {
         input.value = field?.enum?.[0] ?? 'on';
         input.checked = field.default === input.value;
       }
+    } else {
+      input.multiple = field.type === 'file[]';
     }
     if (field.required) {
       input.setAttribute('required', 'required');
@@ -328,8 +313,23 @@ function inputDecorator(field, element) {
   }
 }
 
+const layoutDecorators = {
+  'formsninja/components/adaptiveForm/wizard': 'wizard',
+}
+
+function applyLayout(panel, element) {
+  const { ':type': type = '' } = panel;
+  if (type && layoutDecorators.hasOwnProperty(type)) {
+    const layout = layoutDecorators[type];
+    import(`./layout/${layout}.js`).then((module) => {
+      const layoutFn = module.default;
+      layoutFn(element);
+    });
+  }
+}
+
 export async function generateFormRendition(panel, container) {
-  const { ':items': items, ':type': type } = panel;
+  const { ':items': items = [] } = panel;
   // eslint-disable-next-line no-unused-vars
   Object.entries(items).forEach(([key, field]) => {
     field.renderType = field?.fieldType?.replace('-input', '') ?? 'text';
@@ -338,10 +338,11 @@ export async function generateFormRendition(panel, container) {
     inputDecorator(field, element);
     colSpanDecorator(field, element);
     container.append(element);
-    if (type === 'panel') {
+    if (field.renderType === 'panel') {
       generateFormRendition(field, element);
     }
   });
+  applyLayout(panel, container);
 }
 
 function getFieldContainer(fieldElement) {
@@ -372,7 +373,7 @@ function updateorCreateInvalidMsg(fieldElement) {
   return element;
 }
 
-async function createForm(formDef, block) {
+export async function createForm(formDef, block) {
   const { action: formPath } = formDef;
   const form = document.createElement('form');
   form.dataset.action = formPath;

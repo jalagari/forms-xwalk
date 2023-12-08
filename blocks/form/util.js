@@ -28,7 +28,7 @@ export function createLabel(fd, tagName = 'label') {
   const label = document.createElement(tagName);
   label.setAttribute('for', fd.id);
   label.className = 'field-label';
-  label.textContent = fd?.label?.visible ? fd?.label?.value : '';
+  label.textContent = fd?.label?.visible === false ? '' : fd?.label?.value;
   if (fd.Tooltip) {
     label.title = fd.Tooltip;
   }
@@ -37,7 +37,7 @@ export function createLabel(fd, tagName = 'label') {
 
 export function createFieldWrapper(fd, tagName = 'div') {
   const fieldWrapper = document.createElement(tagName);
-  const nameStyle = fd.Name ? ` form-${toClassName(fd.Name)}` : '';
+  const nameStyle = fd.name ? ` form-${toClassName(fd.name)}` : '';
   const fieldId = `form-${fd.renderType}-wrapper${nameStyle}`;
   fieldWrapper.className = fieldId;
   if (fd.visible === false) {

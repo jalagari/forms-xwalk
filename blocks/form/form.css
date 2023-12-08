@@ -16,7 +16,7 @@
     --form-wrapper-padding: 3.4375rem;
     --form-wrapper-max-width: unset;
     --form-columns: 1;
-    --form-padding: 0;
+    --form-padding: 0 20px;;
     --form-max-width: 100%;
     --form-grid-gap: 0 30px;
     --form-fieldset-border: 0;
@@ -308,4 +308,140 @@ main .form .form-radio-wrapper[data-required] label::after{
 .form-fieldset-wrapper.form-fieldset-border-right{
   border-right: 0.0625rem solid var(--clr-gray-dark);
   padding-inline-end: 1rem;
+}
+
+/** Wizard */
+main .wizard {
+    counter-reset: wizard-step-counter;
+}
+
+main .wizard > fieldset {
+    counter-increment: wizard-step-counter;
+}
+
+main .wizard > :not(.current-wizard-step) {
+    display: none;
+}
+
+main .wizard > .current-wizard-step > legend {
+    font-weight: 600;
+}
+
+main .wizard .form-wizard-button-wrapper {
+    grid-column: 1/-1;
+    padding-top: 40px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    position: relative;
+}
+
+main .wizard .form-wizard-button-wrapper button {
+    border: 3px solid var(--clr-secondary);
+    background-color: transparent;
+    color: var(--clr-secondary);
+    text-align: center;
+    min-width: 200px;
+    max-width: 275px;
+    height: 60px;
+}
+
+main .wizard .form-submit-wrapper,
+main .wizard .form-wizard-button-skip,
+main .wizard > .current-wizard-step.form-fieldset-wrapper:first-of-type ~ .form-wizard-button-wrapper > .form-wizard-button-prev,
+main .wizard > .current-wizard-step.form-fieldset-wrapper:last-of-type ~ .form-wizard-button-wrapper > .form-wizard-button-next {
+    display: none;
+}
+
+main .wizard .current-wizard-step.field-wrapper:last-of-type ~ .form-wizard-button-wrapper > .form-submit-wrapper {
+    display: inline-block;
+}
+
+@media(min-width: 992px) {
+    main .wizard.left {
+        --wizard-left-titlebar-width: 400px;
+        --wizard-left-form-padding: 30px;
+        --wizard-left-titlebar-padding: var(--wizard-left-form-padding);
+        --wizard-left-form-padding-bottom: 160px;
+        --form-columns: 1;
+        --fieldset-coulmns: 1;
+    }
+
+    main .wizard.left form {
+        display: grid;
+        grid-template-columns: repeat(var(--form-columns), minmax(0, 1fr));
+        border: 2px solid var(--clr-gray-dark);
+        background-color: var(--clr-gray);
+        gap: unset;
+    }
+
+    /* wizard title on left */
+    main .wizard.left form .current-wizard-step {
+        display: grid;
+        grid-template-columns: repeat(var( --fieldset-coulmns), minmax(0, 1fr));
+        border-left: 2px solid var(--clr-gray-dark);
+        margin-left: var(--wizard-left-titlebar-width);
+        background-color: var(--clr-white);
+        max-width: 1135px;
+        min-width: 540px;
+        padding: var(--wizard-left-form-padding);
+        padding-bottom: var(--wizard-left-form-padding-bottom);
+    }
+
+    main .wizard.left form > fieldset {
+        width: unset;
+    }
+
+    main .wizard.left form > fieldset:not(.current-wizard-step) {
+        position: absolute;
+        display: unset;
+    }
+
+    main .wizard.left form > fieldset:not(.current-wizard-step) > :not(legend) {
+        display: none;
+    }
+
+    main .wizard.left form > fieldset > legend::before {
+        content: counter(wizard-step-counter);
+        display: inline-block;
+        border: 2px solid var(--clr-blue);
+        color: var(--clr-blue);
+        border-radius: 50%;
+        width: 35px;
+        height: 35px;
+        margin-right: 0.75rem;
+        text-align: center;
+        padding-top: 5px;
+    }
+
+    main .wizard.left form > fieldset > legend {
+        position: absolute;
+        font-size: 1.5rem;
+        margin-top: calc(var(--wizard-step-index) * 110px);
+        width: var(--wizard-left-titlebar-width);
+        padding: var(--wizard-left-titlebar-padding) var(--wizard-left-titlebar-padding) 0;
+        line-height: 1;
+        margin-bottom: 0;
+    }
+
+    main .wizard.left form > .current-wizard-step > legend {
+        margin-left: calc(-1*var(--wizard-left-titlebar-width) - var(--wizard-left-form-padding));
+        margin-top: calc((var(--wizard-step-index) * 110px) - var(--wizard-left-titlebar-padding));
+    }
+
+    main .wizard.left form > .current-wizard-step > legend::before {
+        background-color: var(--clr-blue);
+        color: var(--clr-white);
+    }
+
+    main .wizard.left form .form-wizard-button-wrapper {
+        margin-top: -160px;
+        margin-left:  var(--wizard-left-titlebar-width);
+        padding: 40px 60px 0;
+        grid-gap: 0 30px;
+    }
+}
+@media (min-width: 1200px) {
+    main .wizard.left {
+        --fieldset-coulmns: 2;
+    }
 }
