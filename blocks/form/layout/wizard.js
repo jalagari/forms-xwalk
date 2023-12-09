@@ -75,7 +75,7 @@ export class WizardLayout {
 
   addButton(wrapper, panel, buttonDef, forward = true) {
     const button = createButton(buttonDef);
-    button.classList.add(buttonDef.Id);
+    button.classList.add(buttonDef.id);
     button.addEventListener('click', () => this.navigate(panel, forward));
     wrapper.append(button);
   }
@@ -85,13 +85,13 @@ export class WizardLayout {
     wrapper.className = 'form-wizard-button-wrapper';
     if (this.includePrevBtn) {
       this.addButton(wrapper, panel, {
-        label: { value : 'Back'}, buttonType: 'button', type: 'button', name: 'back', id: 'form-wizard-button-prev',
+        label: { value : 'Back'}, fieldType: 'button', name: 'back', id: 'form-wizard-button-prev',
       }, false);
     }
 
     if (this.includeNextBtn) {
       this.addButton(wrapper, panel, {
-        label: { value : 'NEXT'}, buttonType: 'button', type: 'button', name: 'next', id: 'form-wizard-button-next',
+        label: { value : 'NEXT'}, fieldType: 'button', name: 'next', id: 'form-wizard-button-next',
       });
     }
 
@@ -103,6 +103,7 @@ export class WizardLayout {
     panel.append(wrapper);
     panel.querySelector('fieldset')?.classList.add('current-wizard-step');
     panel.classList.add('wizard');
+    panel.classList.add('left');
   }
 }
 

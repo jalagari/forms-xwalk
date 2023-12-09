@@ -38,7 +38,8 @@ export function createLabel(fd, tagName = 'label') {
 export function createFieldWrapper(fd, tagName = 'div') {
   const fieldWrapper = document.createElement(tagName);
   const nameStyle = fd.name ? ` form-${toClassName(fd.name)}` : '';
-  const fieldId = `form-${fd.renderType}-wrapper${nameStyle}`;
+  const renderType = getHTMLRenderType(fd);
+  const fieldId = `form-${renderType}-wrapper${nameStyle}`;
   fieldWrapper.className = fieldId;
   if (fd.visible === false) {
     fieldWrapper.dataset.hidden = 'true';
@@ -52,10 +53,14 @@ export function createButton(fd) {
   const wrapper = createFieldWrapper(fd);
   const button = document.createElement('button');
   button.textContent = fd?.label?.value || '';
-  button.type = fd.buttonType;
+  button.type = fd.buttonType || 'button';
   button.classList.add('button');
   button.id = fd.id;
   button.name = fd.name;
   wrapper.replaceChildren(button);
   return wrapper;
+}
+
+export function getHTMLRenderType(fd) {
+  return fd?.fieldType?.replace('-input', '') ?? 'text';
 }

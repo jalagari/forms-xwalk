@@ -1,5 +1,5 @@
 import {
-  createButton, createFieldWrapper, createLabel,
+  createButton, createFieldWrapper, createLabel, getHTMLRenderType,
 } from './util.js';
 import {enableRuleEngine} from './rules/index.js';
 
@@ -87,7 +87,8 @@ const constraintsDef = Object.entries({
 const constraintsObject = Object.fromEntries(constraintsDef);
 
 function setConstraints(element, fd) {
-  const constraints = constraintsObject[fd.renderType];
+  const renderType = getHTMLRenderType(fd);
+  const constraints = constraintsObject[renderType];
   if (constraints) {
     constraints
       .filter(([nm]) => fd[nm])
@@ -116,7 +117,7 @@ function createSubmit(fd) {
 
 function createInput(fd) {
   const input = document.createElement('input');
-  input.type = fd.renderType;
+  input.type = getHTMLRenderType(fd);
   setPlaceholder(input, fd);
   setConstraints(input, fd);
   return input;
@@ -333,13 +334,12 @@ export function generateFormRendition(panel, container) {
   const { ':items': items = [] } = panel;
   // eslint-disable-next-line no-unused-vars
   Object.entries(items).forEach(([key, field]) => {
-    field.renderType = field?.fieldType?.replace('-input', '') ?? 'text';
     field.value = field.value ?? '';
     const element = renderField(field);
     inputDecorator(field, element);
     colSpanDecorator(field, element);
     container.append(element);
-    if (field.renderType === 'panel') {
+    if (field?.fieldType === 'panel') {
       generateFormRendition(field, element);
     }
   });
