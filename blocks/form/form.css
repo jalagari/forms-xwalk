@@ -305,30 +305,9 @@ main .wizard  .current-wizard-step.field-wrapper:last-of-type ~ .form-wizard-but
     display: inline-block;
 }
 
-
-/* wizard title on left */
-main .wizard.left .current-wizard-step {
-    display: grid;
-    grid-template-columns: repeat(var( --fieldset-coulmns), minmax(0, 1fr));
-    border-left: 2px solid var(--form-wizard-border-color);
-    margin-left: var(--wizard-left-titlebar-width);
-    background-color: var(--background-color-primary);
-    padding: var(--wizard-left-form-padding);
-    padding-bottom: var(--wizard-left-form-padding-bottom);
-}
-
-@media (max-width: 768px) {
+@media (width >= 600px) {
     main .form button {
         width: unset;
-    }
-    
-    /* wizard title on left */
-    main .wizard.left .current-wizard-step {
-        display: flex;
-        border-left: 0;
-        margin-left: 0;
-        padding: 0;
-        padding-bottom: 0;
     }
 }
 
@@ -342,6 +321,17 @@ main .wizard.left .current-wizard-step {
         border: 2px solid var(--form-wizard-border-color);
         background-color: var( --form-wizard-background-color);
         gap: unset;
+    }
+
+    /* wizard title on left */
+    main .wizard.left .current-wizard-step {
+        display: grid;
+        grid-template-columns: repeat(var( --fieldset-coulmns), minmax(0, 1fr));
+        border-left: 2px solid var(--form-wizard-border-color);
+        margin-left: var(--wizard-left-titlebar-width);
+        background-color: var(--background-color-primary);
+        padding: var(--wizard-left-form-padding);
+        padding-bottom: var(--wizard-left-form-padding-bottom);
     }
 
     main .wizard.left > fieldset {
