@@ -35,6 +35,10 @@ export function createLabel(fd, tagName = 'label') {
   return label;
 }
 
+export function getHTMLRenderType(fd) {
+  return fd?.fieldType?.replace('-input', '') ?? 'text';
+}
+
 export function createFieldWrapper(fd, tagName = 'div') {
   const fieldWrapper = document.createElement(tagName);
   const nameStyle = fd.name ? ` form-${toClassName(fd.name)}` : '';
@@ -62,8 +66,4 @@ export function createButton(fd) {
   button.name = fd.name;
   wrapper.replaceChildren(button);
   return wrapper;
-}
-
-export function getHTMLRenderType(fd) {
-  return fd?.fieldType?.replace('-input', '') ?? 'text';
 }

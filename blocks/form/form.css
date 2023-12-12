@@ -46,8 +46,7 @@
     --form-upload-font-size: var(--form-font-size-xs);
     --form-upload-background-color: var(--background-color-primary);
     --form-submit-width: 100%;
-    --form-width: 100%;
-
+    --form-width: 95%;
     --form-wizard-background-color: #f2f2f2;
     --form-wizard-border-color: #757575;
     --form-wizard-number-color: var(--button-primary-color);
@@ -150,10 +149,6 @@ main .form fieldset legend {
     width: 100%;
     padding: var(--form-fieldset-legend-padding);
     margin-bottom: 10px;
-}
-
-main .innovate form > fieldset > legend {
-    text-align: center;
 }
 
 main .form label {
@@ -263,7 +258,7 @@ main .wizard fieldset legend {
     font-weight: normal;
 }
 
-main .wizard  > fieldset {
+main .form form .wizard  > fieldset {
     counter-increment: wizard-step-counter;
 }
 
@@ -282,6 +277,7 @@ main .wizard  .form-wizard-button-wrapper {
     padding-right: 30px;
 
 }
+
 main .wizard .form-wizard-button-wrapper .form-button-wrapper {
     flex: none;
 }
@@ -304,23 +300,13 @@ main .wizard  .current-wizard-step.field-wrapper:last-of-type ~ .form-wizard-but
     display: inline-block;
 }
 
-@media (min-width: 576px) {
-    :root {
-        --form-width: 540px;
-    }
-}
-
-@media (min-width: 768px) {
-    :root {
-        --form-width: 740px;
-    }
-
+@media (width >= 600px) {
     main .form button {
         width: unset;
     }
 }
 
-@media(min-width: 992px) {
+@media(width >= 992px) {
     main .wizard.left {
         --wizard-left-titlebar-width: 360px;
         --wizard-left-form-padding: 30px;
@@ -328,9 +314,7 @@ main .wizard  .current-wizard-step.field-wrapper:last-of-type ~ .form-wizard-but
         --wizard-left-form-padding-bottom: 160px;
         --form-columns: 1;
         --fieldset-coulmns: 1;
-    }
 
-    main .wizard.left {
         display: grid;
         grid-template-columns: repeat(var(--form-columns), minmax(0, 1fr));
         border: 2px solid var(--form-wizard-border-color);
@@ -398,41 +382,11 @@ main .wizard  .current-wizard-step.field-wrapper:last-of-type ~ .form-wizard-but
         margin-top: -160px;
         margin-left:  var(--wizard-left-titlebar-width);
     }
-
-    /* claim custom styling need formcontainer with only padding*/
-    main .claim.form-container {
-        --form-width: 100%;
-        padding: 0 min(calc((100% - 952px)/2), 6rem);
-    }
-
-    main .claim.form-container > div {
-        max-width: unset;
-    }
 }
 
-@media (min-width: 1200px) {
-    :root {
-        --form-width: 95%;
-    }
-
+@media (width >= 1200px) {
     main .wizard.left {
         --fieldset-coulmns: 1;
-    }
-}
-
-main form .form-panel-wrapper {
-    display: flex;
-    padding: 0;
-    flex-direction: column;
-}
-
-/* main form .form-panel-wrapper > .field-wrapper{
-    flex: 1 0 auto;
-} */
-
-@media (min-width: 1200px), (min-width: 992px) {
-    :root {
-        --form-columns: 1;
     }
 
     main .form form .form-checkbox-wrapper,
@@ -446,4 +400,10 @@ main form .form-panel-wrapper {
         flex-flow: row wrap;
         gap: 10px 15px;
     }
+}
+
+main form .form-panel-wrapper {
+    display: flex;
+    padding: 0;
+    flex-direction: column;
 }

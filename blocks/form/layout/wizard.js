@@ -85,13 +85,13 @@ export class WizardLayout {
     wrapper.className = 'form-wizard-button-wrapper';
     if (this.includePrevBtn) {
       this.addButton(wrapper, panel, {
-        label: { value : 'Back'}, fieldType: 'button', name: 'back', id: 'form-wizard-button-prev',
+        label: { value: 'Back' }, fieldType: 'button', name: 'back', id: 'form-wizard-button-prev',
       }, false);
     }
 
     if (this.includeNextBtn) {
       this.addButton(wrapper, panel, {
-        label: { value : 'NEXT'}, fieldType: 'button', name: 'next', id: 'form-wizard-button-next',
+        label: { value: 'NEXT' }, fieldType: 'button', name: 'next', id: 'form-wizard-button-next',
       });
     }
 
@@ -109,8 +109,8 @@ export class WizardLayout {
 
 const layout = new WizardLayout();
 
-export default function wizardLayout(panel, block) {
-    layout.applyLayout(panel);
+export default function wizardLayout(panel) {
+  layout.applyLayout(panel);
 }
 
 export const navigate = layout.navigate.bind(layout);

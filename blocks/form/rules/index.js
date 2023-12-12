@@ -16,10 +16,10 @@ export async function applyRuleEngine(htmlForm, worker) {
 
   htmlForm.addEventListener('click', (e) => {
     if (e.target.tagName === 'BUTTON') {
-      const payload = {id: e.target.id};
+      const payload = { id: e.target.id };
       worker.postMessage({
         name: 'click',
-        payload
+        payload,
       });
     }
   });
@@ -50,17 +50,20 @@ function handleRuleEngineEvent(e) {
         case 'enabled':
           field.disabled = !currentValue;
           break;
+        default:
+          break;
       }
     });
   } else if (name === 'submitSuccess') {
+    // eslint-disable-next-line no-alert
     alert('submit success full');
   } else if (name === 'submitFailure') {
+    // eslint-disable-next-line no-alert
     alert('submit failed');
   }
 }
 
 export async function enableRuleEngine(formDef, renderHTMLForm) {
-  console.time('enableRuleEngine');
   const myWorker = new Worker('/blocks/form/rules/RuleEngineWorker.js', { type: 'module' });
 
   myWorker.postMessage({
@@ -70,8 +73,6 @@ export async function enableRuleEngine(formDef, renderHTMLForm) {
 
   return new Promise((resolve) => {
     myWorker.addEventListener('message', async (e) => {
-      console.timeEnd('enableRuleEngine');
-      console.log('message received from worker', e);
       if (e.data.name === 'init') {
         const form = await renderHTMLForm(e.data.payload);
         applyRuleEngine(form, myWorker);

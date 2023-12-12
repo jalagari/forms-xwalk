@@ -1,7 +1,7 @@
 import {
   createButton, createFieldWrapper, createLabel, getHTMLRenderType,
 } from './util.js';
-import {enableRuleEngine} from './rules/index.js';
+import { enableRuleEngine } from './rules/index.js';
 
 function generateUnique() {
   return new Date().valueOf() + Math.random();
@@ -252,28 +252,6 @@ function renderField(fd) {
   return field;
 }
 
-async function applyTransformation(formDef, form, block) {
-  try {
-    // eslint-disable-next-line import/no-cycle
-    const { requestTransformers, transformers } = await import('./decorators/index.js');
-    if (transformers) {
-      transformers.forEach(
-        (fn) => fn.call(this, formDef, form, block),
-      );
-    }
-
-    const transformRequest = async (request, fd) => requestTransformers?.reduce(
-      (promise, transformer) => promise.then((modifiedRequest) => transformer(modifiedRequest, fd)),
-      Promise.resolve(request),
-    );
-    return transformRequest;
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.log('no custom decorators found.');
-  }
-  return (req) => req;
-}
-
 async function fetchForm(pathname) {
   // get the main form
   const resp = await fetch(pathname);
@@ -317,14 +295,14 @@ function inputDecorator(field, element) {
 
 const layoutDecorators = {
   'formsninja/components/adaptiveForm/wizard': 'wizard',
-}
+};
 
 async function applyLayout(panel, element) {
   const { ':type': type = '' } = panel;
-  if (type && layoutDecorators.hasOwnProperty(type)) {
+  if (type && layoutDecorators[type]) {
     const layout = layoutDecorators[type];
     const module = await import(`./layout/${layout}.js`);
-    if(module && module.default) {
+    if (module && module.default) {
       const layoutFn = module.default;
       layoutFn(element);
     }
@@ -390,7 +368,7 @@ export async function createForm(formDef) {
     const valid = form.checkValidity();
     if (valid) {
       e.submitter.setAttribute('disabled', '');
-      handleSubmit(form, transformRequest);
+      handleSubmit(form);
     } else {
       const firstInvalidEl = form.querySelector(':invalid:not(fieldset)');
       if (firstInvalidEl) {
@@ -404,7 +382,7 @@ export async function createForm(formDef) {
 
 export default async function decorate(block) {
   let container = block.querySelector('a[href$=".json"]');
-  let form; let formDef;
+  let formDef;
   if (container) {
     const { pathname } = new URL(container.href);
     formDef = await fetchForm(pathname);

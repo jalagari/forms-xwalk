@@ -24,7 +24,6 @@ export default class RuleEngine {
   rulesOrder = {};
 
   constructor(formDef) {
-    console.time('createFormInstance');
     this.form = createFormInstance(formDef);
     this.form.subscribe((e) => {
       postMessage({
@@ -32,20 +31,19 @@ export default class RuleEngine {
         id: e.payload.field.id,
         payload: {
           changes: e.payload.changes,
-        }
+        },
       });
-    }, 'fieldChanged')
+    }, 'fieldChanged');
     this.form.subscribe((e) => {
       postMessage(({
-        name: e.type
-      }))
+        name: e.type,
+      }));
     }, 'submitSuccess');
     this.form.subscribe((e) => {
       postMessage(({
-        name: e.type
-      }))
+        name: e.type,
+      }));
     }, 'submitFailure');
-    console.timeEnd('createFormInstance');
   }
 
   getState() {
@@ -63,15 +61,13 @@ onmessage = (e) => {
     case 'init':
       ruleEngine = new RuleEngine(e.data.payload);
       // eslint-disable-next-line no-case-declarations
-      console.time('getState');
       const state = ruleEngine.getState();
-      console.timeEnd('getState');
       postMessage({
         name: 'init',
         payload: state,
       });
-      ruleEngine.dispatch = (e) => {
-        postMessage(e);
+      ruleEngine.dispatch = (msg) => {
+        postMessage(msg);
       };
       break;
     case 'change':
@@ -86,9 +82,10 @@ onmessage = (e) => {
       field = ruleEngine.form.getElement(e.data.payload.id);
       if (field) {
         field.dispatch({
-          type: 'click'
+          type: 'click',
         });
       }
+      break;
     default:
       break;
   }
