@@ -319,18 +319,19 @@ const layoutDecorators = {
   'formsninja/components/adaptiveForm/wizard': 'wizard',
 }
 
-function applyLayout(panel, element) {
+async function applyLayout(panel, element) {
   const { ':type': type = '' } = panel;
   if (type && layoutDecorators.hasOwnProperty(type)) {
     const layout = layoutDecorators[type];
-    import(`./layout/${layout}.js`).then((module) => {
+    const module = await import(`./layout/${layout}.js`);
+    if(module && module.default) {
       const layoutFn = module.default;
       layoutFn(element);
-    });
+    }
   }
 }
 
-export function generateFormRendition(panel, container) {
+export async function generateFormRendition(panel, container) {
   const { ':items': items = [] } = panel;
   // eslint-disable-next-line no-unused-vars
   Object.entries(items).forEach(([key, field]) => {
@@ -343,7 +344,7 @@ export function generateFormRendition(panel, container) {
       generateFormRendition(field, element);
     }
   });
-  applyLayout(panel, container);
+  await applyLayout(panel, container);
 }
 
 function getFieldContainer(fieldElement) {
@@ -374,12 +375,12 @@ function updateorCreateInvalidMsg(fieldElement) {
   return element;
 }
 
-export function createForm(formDef) {
+export async function createForm(formDef) {
   const { action: formPath } = formDef;
   const form = document.createElement('form');
   form.dataset.action = formPath;
   form.noValidate = true;
-  generateFormRendition(formDef, form);
+  await generateFormRendition(formDef, form);
   form.querySelectorAll('input,textarea,select').forEach((el) => {
     el.addEventListener('invalid', () => updateorCreateInvalidMsg(el));
     el.addEventListener('change', () => updateorCreateInvalidMsg(el));

@@ -13,6 +13,16 @@ export async function applyRuleEngine(htmlForm, worker) {
       payload,
     });
   });
+
+  htmlForm.addEventListener('click', (e) => {
+    if (e.target.tagName === 'BUTTON') {
+      const payload = {id: e.target.id};
+      worker.postMessage({
+        name: 'click',
+        payload
+      });
+    }
+  });
 }
 
 function handleRuleEngineEvent(e) {
@@ -42,6 +52,10 @@ function handleRuleEngineEvent(e) {
           break;
       }
     });
+  } else if (name === 'submitSuccess') {
+    alert('submit success full');
+  } else if (name === 'submitFailure') {
+    alert('submit failed');
   }
 }
 
@@ -55,11 +69,11 @@ export async function enableRuleEngine(formDef, renderHTMLForm) {
   });
 
   return new Promise((resolve) => {
-    myWorker.addEventListener('message', (e) => {
+    myWorker.addEventListener('message', async (e) => {
       console.timeEnd('enableRuleEngine');
       console.log('message received from worker', e);
       if (e.data.name === 'init') {
-        const form = renderHTMLForm(e.data.payload);
+        const form = await renderHTMLForm(e.data.payload);
         applyRuleEngine(form, myWorker);
         resolve(form);
       } else {

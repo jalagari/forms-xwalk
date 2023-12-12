@@ -2,14 +2,15 @@
     --background-color-primary: #fff;
     --label-color: #666;
     --border-color: #818a91;
+    --form-error-color: #ff5f3f;
     --button-primary-color: #5F8DDA;
-    --button-secondary-color: #666;
+    --button-secondary-color: #007dbd;
     --button-primary-hover-color: #035fe6;
     --form-font-size-m: 22px;
     --form-font-size-s: 18px;
     --form-font-size-xs: 16px;
     --form-background-color: var(--background-color-primary);
-    --form-padding: 0;
+    --form-padding: 3%;
     --form-columns: 1;
     --form-field-horz-gap: 40px;
     --form-field-vert-gap: 20px;
@@ -97,6 +98,11 @@ main .form form fieldset fieldset {
 main .form .field-description {
     color: var(--form-label-color);
     font-size: var(--form-font-size-xs);
+}
+
+main .form form .field-invalid {
+    color: var(--form-error-color);
+    font-weight: 700;
 }
 
 main .form input, 
@@ -271,8 +277,9 @@ main .wizard  > .current-wizard-step > legend {
 
 main .wizard  .form-wizard-button-wrapper {
     display: flex;
-    align-items: center;
-    justify-content: space-around;
+    justify-content: end;
+    gap: 20px;
+
 }
 main .wizard .form-wizard-button-wrapper .form-button-wrapper {
     flex: none;
@@ -404,7 +411,7 @@ main .wizard  .current-wizard-step.field-wrapper:last-of-type ~ .form-wizard-but
 
 @media (min-width: 1200px) {
     :root {
-        --form-width: 97%;
+        --form-width: 990px;
     }
 
     main .wizard.left {

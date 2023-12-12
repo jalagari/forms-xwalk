@@ -195,7 +195,6 @@ function parseDateTimeSkeleton(skeleton, language) {
     });
     return result;
 }
-
 const twelveMonths = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(m => new Date(2000, m, 1));
 function monthNames(locale, options) {
     return twelveMonths.map(month => {
@@ -271,6 +270,13 @@ function adjustTimeZone(dateObj, timeZone) {
     offsetMSFallback(dateObj, timeZone);
     baseDate += - offset;
     return new Date(baseDate);
+}
+function datetimeToNumber(dateObj) {
+    if (dateObj === null) return 0;
+    return dateObj.getTime() / ( 1000 * 60 * 60 * 24 );
+}
+function numberToDatetime(num) {
+    return new Date(Math.round(num * 1000 * 60 * 60 * 24));
 }
 function fixDigits(formattedParts, parsed) {
     ['hour', 'minute', 'second'].forEach(type => {
@@ -482,7 +488,9 @@ function parseDate(dateString, language, skeleton, timeZone, bUseUTC = false) {
     }
     return timeZone == null ? jsDate : adjustTimeZone(jsDate, timeZone);
 }
-
+function parseDefaultDate(dateString, language, bUseUTC) {
+    return parseDate(dateString, language, 'yyyy-MM-dd', null, bUseUTC);
+}
 const currencies = {
   'da-DK': 'DKK',
   'de-DE': 'EUR',
@@ -517,7 +525,6 @@ const getCurrency = function (locale) {
   }
   return ''
 };
-
 const NUMBER_REGEX =
     /(?:[#]+|[@]+(#+)?|[0]+|[,]|[.]|[-]|[+]|[%]|[¤]{1,4}(?:\/([a-zA-Z]{3}))?|[;]|[K]{1,2}|E{1,2}[+]?|'(?:[^']|'')*')|[^a-zA-Z']+/g;
 const supportedUnits = ['acre', 'bit', 'byte', 'celsius', 'centimeter', 'day',
@@ -667,7 +674,6 @@ function parseNumberSkeleton(skeleton, language) {
         order
     };
 }
-
 function formatNumber(numberValue, language, skeletn) {
     if (skeletn.startsWith('num|')) {
         skeletn = skel.split('|')[1];
@@ -739,7 +745,6 @@ function parseNumber(numberString, language, skel) {
         return numberString;
     }
 }
-
 const getCategory = function (skeleton) {
     const chkCategory = skeleton?.match(/^(?:(num|date)\|)?(.+)/);
     return [chkCategory?.[1], chkCategory?.[2]]
@@ -749,7 +754,7 @@ const format = function (value, locale, skeleton, timezone) {
     switch (category) {
         case 'date':
             if (!(value instanceof Date)) {
-                value = new Date(value);
+                value = new Date(value.replace(/-/g, '\/').replace(/T.+/, ''));
             }
             return formatDate(value, locale, skelton, timezone)
         case 'num':
@@ -770,4 +775,4 @@ const parse = function (value, locale, skeleton, timezone) {
     }
 };
 
-export { format, formatDate, formatNumber, parse, parseDate, getSkeleton as parseDateSkeleton, parseNumber };
+export { datetimeToNumber, format, formatDate, formatNumber, numberToDatetime, parse, parseDate, getSkeleton as parseDateSkeleton, parseDefaultDate, parseNumber };

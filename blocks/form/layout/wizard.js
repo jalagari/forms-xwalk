@@ -40,7 +40,7 @@ export class WizardLayout {
   validateContainer(container) {
     const fieldElements = [...container.querySelectorAll(this.inputFields)];
     const isValid = fieldElements.reduce((valid, fieldElement) => {
-      const isFieldValid = fieldElement.offsetParent !== null ? fieldElement.checkValidity() : true;
+      const isFieldValid = fieldElement.checkValidity();
       return valid && isFieldValid;
     }, true);
 

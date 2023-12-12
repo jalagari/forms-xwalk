@@ -126,6 +126,16 @@ class Submit extends ActionImpl {
         super(payload, 'submit', { dispatch });
     }
 }
+class SubmitSuccess extends ActionImpl {
+    constructor(payload, dispatch = false) {
+        super(payload, 'submitSuccess', { dispatch });
+    }
+}
+class SubmitFailure extends ActionImpl {
+    constructor(payload, dispatch = false) {
+        super(payload, 'submitFailure', { dispatch });
+    }
+}
 class Reset extends ActionImpl {
     constructor(payload, dispatch = false) {
         super(payload, 'reset', { dispatch });
@@ -168,4 +178,4 @@ class RemoveInstance extends ActionImpl {
     }
 }
 
-export { AddInstance, AddItem, Blur, Change, Click, CustomEvent, ExecuteRule, FieldChanged, Focus, FormLoad, Initialize, Invalid, RemoveInstance, RemoveItem, Reset, Submit, Valid, ValidationComplete, propertyChange };
+export { AddInstance, AddItem, Blur, Change, Click, CustomEvent, ExecuteRule, FieldChanged, Focus, FormLoad, Initialize, Invalid, RemoveInstance, RemoveItem, Reset, Submit, SubmitFailure, SubmitSuccess, Valid, ValidationComplete, propertyChange };

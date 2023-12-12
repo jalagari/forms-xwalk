@@ -20,42 +20,12 @@ export function getItems(container) {
   return container[':itemsOrder'].map((x) => container[':items'][x]);
 }
 
-function transformItems(formDef) {
-  const items = getItems(formDef);
-  formDef.items = items;
-  formDef[':items'] = undefined;
-  formDef[':itemsOrder'] = undefined;
-  items.forEach((item) => {
-    if (item[':items']) {
-      item = transformItems(item);
-    }
-  })
-  return formDef
-}
-
-function transformColonItems(formDef) {
-  let res = {};
-  if (formDef.items) {
-    const items = formDef.items;
-    res = items.reduce((acc, x) => {
-      acc[':items'][x.id] = transformColonItems(x);
-      acc[':itemsOrder'].push(x.id);
-      return acc;
-    }, { ':items': {}, ':itemsOrder': []})
-  }
-  return {
-    ...formDef,
-    ...res,
-  }
-}
-
 export default class RuleEngine {
   rulesOrder = {};
 
   constructor(formDef) {
     console.time('createFormInstance');
-    const dupFormDef = transformItems(formDef);
-    this.form = createFormInstance(dupFormDef);
+    this.form = createFormInstance(formDef);
     this.form.subscribe((e) => {
       postMessage({
         name: e.type,
@@ -65,11 +35,21 @@ export default class RuleEngine {
         }
       });
     }, 'fieldChanged')
+    this.form.subscribe((e) => {
+      postMessage(({
+        name: e.type
+      }))
+    }, 'submitSuccess');
+    this.form.subscribe((e) => {
+      postMessage(({
+        name: e.type
+      }))
+    }, 'submitFailure');
     console.timeEnd('createFormInstance');
   }
 
   getState() {
-    return transformColonItems(this.form.getState());
+    return this.form.getState();
   }
 
   // eslint-disable-next-line class-methods-use-this
@@ -102,6 +82,13 @@ onmessage = (e) => {
         field.value = e.data.payload.value;
       }
       break;
+    case 'click':
+      field = ruleEngine.form.getElement(e.data.payload.id);
+      if (field) {
+        field.dispatch({
+          type: 'click'
+        });
+      }
     default:
       break;
   }

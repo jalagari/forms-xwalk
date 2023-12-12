@@ -51,6 +51,9 @@ export function createFieldWrapper(fd, tagName = 'div') {
 
 export function createButton(fd) {
   const wrapper = createFieldWrapper(fd);
+  if (fd.buttonType) {
+    wrapper.classList.add(`form-${fd?.buttonType}-wrapper`);
+  }
   const button = document.createElement('button');
   button.textContent = fd?.label?.value || '';
   button.type = fd.buttonType || 'button';
