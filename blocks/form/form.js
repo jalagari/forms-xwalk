@@ -2,6 +2,7 @@ import {
   createButton, createFieldWrapper, createLabel, getHTMLRenderType,
 } from './util.js';
 import { enableRuleEngine } from './rules/index.js';
+import env from '../../converter.js';
 
 function generateUnique() {
   return new Date().valueOf() + Math.random();
@@ -395,6 +396,7 @@ export default async function decorate(block) {
     }
   }
   if (formDef) {
+    formDef.action = env.publish + formDef.action;
     const form = await enableRuleEngine(formDef, createForm);
     container.replaceWith(form);
   }
