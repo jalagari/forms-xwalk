@@ -4,13 +4,13 @@
     --border-color: #818a91;
     --form-error-color: #ff5f3f;
     --button-primary-color: #5F8DDA;
-    --button-secondary-color: #007dbd;
+    --button-secondary-color: #666;
     --button-primary-hover-color: #035fe6;
     --form-font-size-m: 22px;
     --form-font-size-s: 18px;
     --form-font-size-xs: 16px;
     --form-background-color: var(--background-color-primary);
-    --form-padding: 3%;
+    --form-padding: 0;
     --form-columns: 1;
     --form-field-horz-gap: 40px;
     --form-field-vert-gap: 20px;
@@ -279,6 +279,7 @@ main .wizard  .form-wizard-button-wrapper {
     display: flex;
     justify-content: end;
     gap: 20px;
+    padding-right: 30px;
 
 }
 main .wizard .form-wizard-button-wrapper .form-button-wrapper {
@@ -411,7 +412,7 @@ main .wizard  .current-wizard-step.field-wrapper:last-of-type ~ .form-wizard-but
 
 @media (min-width: 1200px) {
     :root {
-        --form-width: 990px;
+        --form-width: 95%;
     }
 
     main .wizard.left {
