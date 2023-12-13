@@ -305,24 +305,28 @@ async function applyLayout(panel, element) {
     const module = await import(`./layout/${layout}.js`);
     if (module && module.default) {
       const layoutFn = module.default;
-      layoutFn(element);
+      await layoutFn(element);
     }
   }
 }
 
 export async function generateFormRendition(panel, container) {
   const { ':items': items = [] } = panel;
+  const promises = [];
+
   // eslint-disable-next-line no-unused-vars
-  Object.entries(items).forEach(([key, field]) => {
+  Object.entries(items).forEach(([_, field]) => {
     field.value = field.value ?? '';
     const element = renderField(field);
     inputDecorator(field, element);
     colSpanDecorator(field, element);
     container.append(element);
     if (field?.fieldType === 'panel') {
-      generateFormRendition(field, element);
+      promises.push(generateFormRendition(field, element));
     }
   });
+
+  await Promise.all(promises);
   await applyLayout(panel, container);
 }
 
