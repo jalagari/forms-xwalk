@@ -104,8 +104,8 @@ main .form form .field-invalid {
     font-weight: 700;
 }
 
-main .form input, 
-main .form textarea, 
+main .form input,
+main .form textarea,
 main .form select {
     background-color: var(--form-input-background-color);
     border: var(--form-input-border-size) solid var(--form-input-border-color);
@@ -216,7 +216,7 @@ main .form button:hover {
 }
 
 main .form-submit-wrapper{
-    width: var(--form-submit-width);
+    width: auto;
 }
 
 main .form input:disabled,
@@ -279,7 +279,7 @@ main .wizard  .form-wizard-button-wrapper {
 }
 
 main .wizard .form-wizard-button-wrapper .form-button-wrapper {
-    flex: none;
+    flex: unset;
 }
 
 main .wizard .form-wizard-button-wrapper button {
