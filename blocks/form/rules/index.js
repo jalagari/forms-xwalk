@@ -1,5 +1,7 @@
+import { submitSuccess, submitFailure } from '../submit.js';
+
 export async function applyRuleEngine(htmlForm, worker) {
-  htmlForm.addEventListener('input', (e) => {
+  htmlForm.addEventListener('change', (e) => {
     const field = e.target;
     const { id, value } = field;
     const payload = { id };
@@ -25,13 +27,13 @@ export async function applyRuleEngine(htmlForm, worker) {
   });
 }
 
-function handleRuleEngineEvent(e) {
+function handleRuleEngineEvent(e, form) {
   const { data: { name, id, payload } } = e;
   if (name === 'fieldChanged') {
     const { changes } = payload;
     changes.forEach((change) => {
       const { propertyName, currentValue } = change;
-      const field = document.getElementById(id);
+      const field = form.querySelector(`#${id}`);
       switch (propertyName) {
         case 'required':
           if (currentValue === true) {
@@ -39,6 +41,9 @@ function handleRuleEngineEvent(e) {
           } else {
             field.closest('.field-wrapper').removeAttribute('data-required');
           }
+          break;
+        case 'value':
+          field.value = currentValue;
           break;
         case 'visible':
           if (currentValue === true) {
@@ -55,8 +60,7 @@ function handleRuleEngineEvent(e) {
       }
     });
   } else if (name === 'submitSuccess') {
-    // eslint-disable-next-line no-alert
-    alert('submit success full');
+    submitSuccess(e, form);
   } else if (name === 'submitFailure') {
     // eslint-disable-next-line no-alert
     alert('submit failed');
@@ -72,13 +76,14 @@ export async function enableRuleEngine(formDef, renderHTMLForm) {
   });
 
   return new Promise((resolve) => {
+    let form;
     myWorker.addEventListener('message', async (e) => {
       if (e.data.name === 'init') {
-        const form = await renderHTMLForm(e.data.payload);
+        form = await renderHTMLForm(e.data.payload);
         applyRuleEngine(form, myWorker);
         resolve(form);
       } else {
-        handleRuleEngineEvent(e);
+        handleRuleEngineEvent(e, form);
       }
     });
   });

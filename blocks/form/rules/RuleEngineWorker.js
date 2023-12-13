@@ -1,5 +1,5 @@
 /* eslint-disable max-classes-per-file */
-import { createFormInstance } from './model/afb-runtime.js';
+import { createFormInstance } from './model/afb-runtime.min.js';
 
 function stripTags(input, allowd) {
   const allowed = ((`${allowd || ''}`)
@@ -37,11 +37,13 @@ export default class RuleEngine {
     this.form.subscribe((e) => {
       postMessage(({
         name: e.type,
+        payload: e.payload,
       }));
     }, 'submitSuccess');
     this.form.subscribe((e) => {
       postMessage(({
         name: e.type,
+        payload: e.payload,
       }));
     }, 'submitFailure');
   }
