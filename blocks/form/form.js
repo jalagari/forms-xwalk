@@ -373,7 +373,7 @@ export async function createForm(formDef) {
     const valid = form.checkValidity();
     if (valid) {
       e.submitter.setAttribute('disabled', '');
-      handleSubmit(form);
+      // handleSubmit(form);
     } else {
       const firstInvalidEl = form.querySelector(':invalid:not(fieldset)');
       if (firstInvalidEl) {
