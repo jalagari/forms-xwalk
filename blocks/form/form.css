@@ -99,13 +99,13 @@ main .form .field-description {
     font-size: var(--form-font-size-xs);
 }
 
-main .form form .field-invalid {
+main .form form .field-invalid .field-description {
     color: var(--form-error-color);
     font-weight: 700;
 }
 
-main .form input, 
-main .form textarea, 
+main .form input,
+main .form textarea,
 main .form select {
     background-color: var(--form-input-background-color);
     border: var(--form-input-border-size) solid var(--form-input-border-color);
@@ -131,6 +131,8 @@ main .form input[type='radio'] {
     height: 16px;
     flex: none;
     margin: 0;
+    position: static;
+    z-index: 1;
 }
 
 main .form textarea {
@@ -211,6 +213,10 @@ main .form button {
     width: 100%;
 }
 
+main form .form-file-wrapper > button{
+    display: flex;
+}
+
 main .form button:hover {
     background: var(--form-button-background-hover-color);
 }
@@ -237,6 +243,19 @@ main .form-file-wrapper .field-dropregion {
     margin: 11px 0 8px;
     padding: 32px;
     text-align: center;
+}
+
+main .form form .item-remove {
+    padding: 0;
+    background: #fff;
+    padding-left: 10px;
+}
+
+main .form form .item-remove span {
+    display: block;
+    width: 20px;
+    height: 20px;
+    background: url('/icons/delete.svg') no-repeat;
 }
 
 main .form-file-wrapper .file-description button {
@@ -360,6 +379,7 @@ main .wizard  .current-wizard-step.field-wrapper:last-of-type ~ .form-wizard-but
     }
 
     main .wizard.left > fieldset > legend {
+        display: block !important;
         position: absolute;
         font-size: 1.2rem;
         margin-top: calc(var(--wizard-step-index) * 85px);
@@ -406,4 +426,36 @@ main form .form-panel-wrapper {
     display: flex;
     padding: 0;
     flex-direction: column;
+}
+
+main .form .form-message.success-message {
+    color: #0f5132;
+    background-color: #d1e7dd;
+    border-color: #badbcc;
+}
+
+main .form .form-message.error-message {
+    color: #842029;
+    background-color: #f8d7da;
+    border-color: #f5c2c7;
+}
+
+main .form .form-button-wrapper button {
+    cursor:pointer
+}
+
+main .form .form-button-wrapper button:hover {
+    border: 3px solid var(#fff);
+    color: #fff;
+    background-color: var(--button-secondary-color);
+}
+
+main .form .form-button-wrapper button[disabled] {
+    cursor:auto
+}
+
+main .form .form-button-wrapper button[disabled]:hover {
+    border: 3px solid var(--button-secondary-color);
+    color: var(--button-secondary-color);
+    background-color: transparent;
 }

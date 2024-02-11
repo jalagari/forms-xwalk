@@ -1,75 +1,25 @@
 import {
   createButton, createFieldWrapper, createLabel, getHTMLRenderType,
+  createHelpText,
+  getId,
+  stripTags,
+  checkValidation,
 } from './util.js';
-import { enableRuleEngine } from './rules/index.js';
-import env from '../../converter.js';
+import GoogleReCaptcha from './integrations/recaptcha.js';
 
-function generateUnique() {
-  return new Date().valueOf() + Math.random();
-}
+import fileDecorate from './file.js';
+import DocBasedFormToAF from './transform.js';
+import transferRepeatableDOM from './layout/repeat.js';
 
-export function constructPayload(form) {
-  const payload = { __id__: generateUnique() };
-  [...form.elements].forEach((fe) => {
-    if (fe.name) {
-      if (fe.type === 'radio') {
-        if (fe.checked) payload[fe.name] = fe.value;
-      } else if (fe.type === 'checkbox') {
-        if (fe.checked) payload[fe.name] = payload[fe.name] ? `${payload[fe.name]},${fe.value}` : fe.value;
-      } else if (fe.type !== 'file') {
-        payload[fe.name] = fe.value;
-      }
-    }
-  });
-  return { payload };
-}
+export const DELAY_MS = 0;
+let captchaField;
+let afModule;
 
-async function submissionFailure(error, form) {
-  // eslint-disable-next-line no-alert
-  alert(error); // TODO define error mechansim
-  form.setAttribute('data-submitting', 'false');
-  form.querySelector('button[type="submit"]').disabled = false;
-}
-
-async function prepareRequest(form, transformer) {
-  const { payload } = constructPayload(form);
-  const headers = {
-    'Content-Type': 'application/json',
-  };
-
-  const body = JSON.stringify({ data: payload });
-  const url = form.dataset.action;
-  if (typeof transformer === 'function') {
-    return transformer({ headers, body, url }, form);
-  }
-  return { headers, body, url };
-}
-
-async function submitForm(form, transformer) {
-  try {
-    const { headers, body, url } = await prepareRequest(form, transformer);
-    const response = await fetch(url, {
-      method: 'POST',
-      headers,
-      body,
-    });
-    if (response.ok) {
-      window.location.href = form.dataset?.redirect || 'thankyou';
-    } else {
-      const error = await response.text();
-      throw new Error(error);
-    }
-  } catch (error) {
-    submissionFailure(error, form);
-  }
-}
-
-async function handleSubmit(form, transformer) {
-  if (form.getAttribute('data-submitting') !== 'true') {
-    form.setAttribute('data-submitting', 'true');
-    await submitForm(form, transformer);
-  }
-}
+const withFieldWrapper = (element) => (fd) => {
+  const wrapper = createFieldWrapper(fd);
+  wrapper.append(element(fd));
+  return wrapper;
+};
 
 function setPlaceholder(element, fd) {
   if (fd.placeHolder) {
@@ -81,7 +31,7 @@ const constraintsDef = Object.entries({
   'password|tel|email|text': [['maxLength', 'maxlength'], ['minLength', 'minlength'], 'pattern'],
   'number|range|date': [['maximum', 'Max'], ['minimum', 'Min'], 'step'],
   file: ['accept', 'Multiple'],
-  fieldset: [['maxOccur', 'data-max'], ['minOccur', 'data-min']],
+  panel: [['maxOccur', 'data-max'], ['minOccur', 'data-min']],
 }).flatMap(([types, constraintDef]) => types.split('|')
   .map((type) => [type, constraintDef.map((cd) => (Array.isArray(cd) ? cd : [cd, cd]))]));
 
@@ -99,23 +49,6 @@ function setConstraints(element, fd) {
   }
 }
 
-function createHelpText(fd) {
-  const div = document.createElement('div');
-  div.className = 'field-description';
-  div.setAttribute('aria-live', 'polite');
-  div.innerHTML = fd.description;
-  div.id = `${fd.id}-description`;
-  return div;
-}
-
-function createSubmit(fd) {
-  const wrapper = createButton(fd);
-  const button = wrapper.querySelector('button');
-  button.id = '';
-  button.name = ''; // removing id and name from button otherwise form.submit() will not work
-  return wrapper;
-}
-
 function createInput(fd) {
   const input = document.createElement('input');
   input.type = getHTMLRenderType(fd);
@@ -123,12 +56,6 @@ function createInput(fd) {
   setConstraints(input, fd);
   return input;
 }
-
-const withFieldWrapper = (element) => (fd) => {
-  const wrapper = createFieldWrapper(fd);
-  wrapper.append(element(fd));
-  return wrapper;
-};
 
 const createTextArea = withFieldWrapper((fd) => {
   const input = document.createElement('textarea');
@@ -142,21 +69,23 @@ const createSelect = withFieldWrapper((fd) => {
   select.title = fd.tooltip ?? '';
   select.readOnly = fd.readOnly;
   select.multiple = fd.type === 'string[]' || fd.type === 'boolean[]' || fd.type === 'number[]';
-  if (fd.placeHolder) {
-    const ph = document.createElement('option');
-    ph.textContent = fd.placeHolder;
-    ph.setAttribute('selected', '');
+  let ph;
+  if (fd.placeholder) {
+    ph = document.createElement('option');
+    ph.textContent = fd.placeholder;
     ph.setAttribute('disabled', '');
     ph.setAttribute('value', '');
     select.append(ph);
   }
+  let optionSelected = false;
 
   const addOption = (label, value) => {
     const option = document.createElement('option');
     option.textContent = label?.trim();
     option.value = value?.trim() || label?.trim();
-    if (fd.value === option.value) {
+    if (fd.value === option.value || (Array.isArray(fd.value) && fd.value.includes(option.value))) {
       option.setAttribute('selected', '');
+      optionSelected = true;
     }
     select.append(option);
     return option;
@@ -165,34 +94,23 @@ const createSelect = withFieldWrapper((fd) => {
   const options = fd?.enum || [];
   const optionNames = fd?.enumNames ?? options;
   options.forEach((value, index) => addOption(optionNames?.[index], value));
+
+  if (ph && optionSelected === false) {
+    ph.setAttribute('selected', '');
+  }
   return select;
 });
 
-function createRadio(fd) {
+function createRadioOrCheckbox(fd) {
   const wrapper = createFieldWrapper(fd);
-  wrapper.insertAdjacentElement('afterbegin', createInput(fd));
-  return wrapper;
-}
-
-const createOutput = withFieldWrapper((fd) => {
-  const output = document.createElement('output');
-  output.name = fd.name;
-  output.id = fd.id;
-  const displayFormat = fd['Display Format'];
-  if (displayFormat) {
-    output.dataset.displayFormat = displayFormat;
+  const input = createInput(fd);
+  const [value, uncheckedValue] = fd.enum || [];
+  input.value = value;
+  if (typeof uncheckedValue !== 'undefined') {
+    input.dataset.uncheckedValue = uncheckedValue;
   }
-  output.innerText = fd.value;
-  return output;
-});
-
-function createHidden(fd) {
-  const input = document.createElement('input');
-  input.type = 'hidden';
-  input.id = fd.id;
-  input.name = fd.name;
-  input.value = fd.value;
-  return input;
+  wrapper.insertAdjacentElement('afterbegin', input);
+  return wrapper;
 }
 
 function createLegend(fd) {
@@ -200,41 +118,179 @@ function createLegend(fd) {
 }
 
 function createFieldSet(fd) {
-  const wrapper = createFieldWrapper(fd, 'fieldset');
+  const wrapper = createFieldWrapper(fd, 'fieldset', createLegend);
   wrapper.id = fd.id;
   wrapper.name = fd.name;
-  if (fd.id.startsWith('panel-')) {
+  if (fd.fieldType === 'panel') {
     wrapper.classList.add('form-panel-wrapper');
   }
-  wrapper.replaceChildren(createLegend(fd));
-  if (fd.Repeatable && fd.Repeatable.toLowerCase() === 'true') {
+  if (fd.repeatable === 'true') {
     setConstraints(wrapper, fd);
-    wrapper.dataset.repeatable = '';
+    wrapper.dataset.repeatable = true;
   }
+  return wrapper;
+}
+
+function setConstraintsMessage(field, messages = {}) {
+  Object.keys(messages).forEach((key) => {
+    field.dataset[`${key}ErrorMessage`] = messages[key];
+  });
+}
+
+function createRadioOrCheckboxGroup(fd) {
+  const wrapper = createFieldSet({ ...fd });
+  const type = fd.fieldType.split('-')[0];
+  fd.enum.forEach((value, index) => {
+    const label = typeof fd.enumNames[index] === 'object' ? fd.enumNames[index].value : fd.enumNames[index];
+    const id = getId(fd.name);
+    const field = createRadioOrCheckbox({
+      name: fd.name,
+      id,
+      label: { value: label },
+      fieldType: type,
+      enum: [value],
+      required: fd.required,
+    });
+    field.classList.remove('field-wrapper', `form-${fd.name}`);
+    const input = field.querySelector('input');
+    input.id = id;
+    input.dataset.fieldType = fd.fieldType;
+    input.name = fd.id; // since id is unique across radio/checkbox group
+    input.checked = Array.isArray(fd.value) ? fd.value.includes(value) : value === fd.value;
+    if ((index === 0 && type === 'radio') || type === 'checkbox') {
+      input.required = fd.required;
+    }
+    wrapper.appendChild(field);
+  });
+  wrapper.dataset.required = fd.required;
+  setConstraintsMessage(wrapper, fd.constraintMessages);
   return wrapper;
 }
 
 function createPlainText(fd) {
   const paragraph = document.createElement('p');
-  paragraph.textContent = fd.Label;
+  if (fd.richText) {
+    paragraph.innerHTML = stripTags(fd.value);
+  } else {
+    paragraph.textContent = fd.value;
+  }
   const wrapper = createFieldWrapper(fd);
   wrapper.id = fd.id;
   wrapper.replaceChildren(paragraph);
   return wrapper;
 }
 
+function createFileField(fd) {
+  const field = createFieldWrapper(fd);
+  const input = createInput(fd);
+  field.append(input);
+  fileDecorate(input);
+  return field;
+}
+
 const fieldRenderers = {
   'drop-down': createSelect,
   'plain-text': createPlainText,
-  checkbox: createRadio,
+  checkbox: createRadioOrCheckbox,
   button: createButton,
   multiline: createTextArea,
   panel: createFieldSet,
-  radio: createRadio,
-  submit: createSubmit,
-  output: createOutput,
-  hidden: createHidden,
+  radio: createRadioOrCheckbox,
+  'radio-group': createRadioOrCheckboxGroup,
+  'checkbox-group': createRadioOrCheckboxGroup,
+  file: createFileField,
 };
+
+async function fetchForm(pathname) {
+  // get the main form
+  const resp = await fetch(pathname);
+  const json = await resp.json();
+  return json;
+}
+
+function colSpanDecorator(field, element) {
+  const colSpan = field['Column Span'];
+  if (colSpan && element) {
+    element.classList.add(`col-${colSpan}`);
+  }
+}
+
+const handleFocus = (input, field) => {
+  const editValue = input.getAttribute('edit-value');
+  input.type = field.type;
+  input.value = editValue;
+};
+
+const handleFocusOut = (input) => {
+  const displayValue = input.getAttribute('display-value');
+  input.type = 'text';
+  input.value = displayValue;
+};
+
+function inputDecorator(field, element) {
+  const input = element?.querySelector('input,textarea,select');
+  if (input) {
+    input.id = field.id;
+    input.name = field.name;
+    input.tooltip = field.tooltip;
+    input.readOnly = field.readOnly;
+    input.autocomplete = field.autoComplete ?? 'off';
+    input.disabled = field.enabled === false;
+    const fieldType = getHTMLRenderType(field);
+    if (['number', 'date'].includes(fieldType) && field.displayFormat !== undefined) {
+      field.type = fieldType;
+      input.setAttribute('edit-value', field.value ?? '');
+      input.setAttribute('display-value', field.displayValue ?? '');
+      input.type = 'text';
+      input.value = field.displayValue ?? '';
+      input.addEventListener('focus', () => handleFocus(input, field));
+      input.addEventListener('blur', () => handleFocusOut(input));
+    } else if (input.type !== 'file') {
+      input.value = field.value ?? '';
+      if (input.type === 'radio' || input.type === 'checkbox') {
+        input.value = field?.enum?.[0] ?? 'on';
+        input.checked = field.value === input.value;
+      }
+    } else {
+      input.multiple = field.type === 'file[]';
+    }
+    if (field.required) {
+      input.setAttribute('required', 'required');
+    }
+    if (field.description) {
+      input.setAttribute('aria-describedby', `${field.id}-description`);
+    }
+    if (field.minItems) {
+      input.dataset.minItems = field.minItems;
+    }
+    if (field.maxItems) {
+      input.dataset.maxItems = field.maxItems;
+    }
+    if (field.maxFileSize) {
+      input.dataset.maxFileSize = field.maxFileSize;
+    }
+    setConstraintsMessage(element, field.constraintMessages);
+    element.dataset.required = field.required;
+  }
+}
+
+const layoutDecorators = [
+  [(panel) => {
+    const { ':type': type = '' } = panel;
+    return type.endsWith('wizard');
+  }, 'wizard'],
+];
+
+async function applyLayout(panel, element) {
+  const result = layoutDecorators.find(([predicate]) => predicate(panel));
+  if (result) {
+    const module = await import(`./layout/${result[1]}.js`);
+    if (module && module.default) {
+      const layoutFn = module.default;
+      await layoutFn(element);
+    }
+  }
+}
 
 function renderField(fd) {
   const fieldType = fd?.fieldType?.replace('-input', '') ?? 'text';
@@ -253,76 +309,24 @@ function renderField(fd) {
   return field;
 }
 
-async function fetchForm(pathname) {
-  // get the main form
-  const resp = await fetch(pathname);
-  const json = await resp.json();
-  return json;
-}
-
-function colSpanDecorator(field, element) {
-  const colSpan = field['Column Span'];
-  if (colSpan && element) {
-    element.classList.add(`col-${colSpan}`);
-  }
-}
-
-function inputDecorator(field, element) {
-  const input = element?.querySelector('input,textarea,select');
-  if (input) {
-    input.id = field.id;
-    input.name = field.name;
-    input.tooltip = field.tooltip;
-    input.readOnly = field.readOnly;
-    input.autocomplete = field.autoComplete ?? 'off';
-    input.disabled = field.enabled === false;
-    if (input.type !== 'file') {
-      input.value = field.default ?? '';
-      if (input.type === 'radio' || input.type === 'checkbox') {
-        input.value = field?.enum?.[0] ?? 'on';
-        input.checked = field.default === input.value;
-      }
-    } else {
-      input.multiple = field.type === 'file[]';
-    }
-    if (field.required) {
-      input.setAttribute('required', 'required');
-    }
-    if (field.description) {
-      input.setAttribute('aria-describedby', `${field.id}-description`);
-    }
-  }
-}
-
-const layoutDecorators = {
-  'formsninja/components/adaptiveForm/wizard': 'wizard',
-};
-
-async function applyLayout(panel, element) {
-  const { ':type': type = '' } = panel;
-  if (type && layoutDecorators[type]) {
-    const layout = layoutDecorators[type];
-    const module = await import(`./layout/${layout}.js`);
-    if (module && module.default) {
-      const layoutFn = module.default;
-      await layoutFn(element);
-    }
-  }
-}
-
 export async function generateFormRendition(panel, container) {
-  const { ':items': items = [] } = panel;
+  const { items = [] } = panel;
   const promises = [];
-
-  // eslint-disable-next-line no-unused-vars
-  Object.entries(items).forEach(([_, field]) => {
+  items.forEach((field) => {
     field.value = field.value ?? '';
-    const element = renderField(field);
-    inputDecorator(field, element);
-    colSpanDecorator(field, element);
-    container.append(element);
-    if (field?.fieldType === 'panel') {
-      promises.push(generateFormRendition(field, element));
+    const { fieldType } = field;
+    if (fieldType === 'captcha') {
+      captchaField = field;
+    } else {
+      const element = renderField(field);
+      if (field.fieldType !== 'radio-group' && field.fieldType !== 'checkbox-group') {
+        inputDecorator(field, element);
+      }
+      colSpanDecorator(field, element);
+      container.append(element);
+      if (field?.fieldType === 'panel') {
+        promises.push(generateFormRendition(field, element));
+      }
     }
   });
 
@@ -330,59 +334,50 @@ export async function generateFormRendition(panel, container) {
   await applyLayout(panel, container);
 }
 
-function getFieldContainer(fieldElement) {
-  const wrapper = fieldElement?.closest('.field-wrapper');
-  let container = wrapper;
-  if ((fieldElement.type === 'radio' || fieldElement.type === 'checkbox') && wrapper.dataset.fieldset) {
-    container = fieldElement?.closest(`fieldset[name=${wrapper.dataset.fieldset}]`);
-  }
-  return container;
+function enableValidation(form) {
+  form.querySelectorAll('input,textarea,select').forEach((input) => {
+    input.addEventListener('invalid', (event) => {
+      checkValidation(event.target);
+    });
+  });
+
+  form.addEventListener('change', (event) => {
+    const { validity } = event.target;
+    if (validity.valid) {
+      // only to remove the error message
+      checkValidation(event.target);
+    }
+  });
 }
 
-function updateorCreateInvalidMsg(fieldElement) {
-  const container = getFieldContainer(fieldElement);
-  let element = container.querySelector(':scope > .field-description');
-  if (!element) {
-    element = createHelpText({ Id: fieldElement.id });
-    container.append(element);
-  }
-  if (fieldElement.validationMessage) {
-    element.classList.add('field-invalid');
-    element.textContent = fieldElement.validationMessage;
-  } else if (container.dataset.description) {
-    element.classList.remove('field-invalid');
-    element.textContent = container.dataset.description;
-  } else if (element) {
-    element.remove();
-  }
-  return element;
-}
-
-export async function createForm(formDef) {
+export async function createForm(formDef, data) {
   const { action: formPath } = formDef;
   const form = document.createElement('form');
   form.dataset.action = formPath;
   form.noValidate = true;
   await generateFormRendition(formDef, form);
-  form.querySelectorAll('input,textarea,select').forEach((el) => {
-    el.addEventListener('invalid', () => updateorCreateInvalidMsg(el));
-    el.addEventListener('change', () => updateorCreateInvalidMsg(el));
-  });
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const valid = form.checkValidity();
-    if (valid) {
-      e.submitter.setAttribute('disabled', '');
-      handleSubmit(form);
-    } else {
-      const firstInvalidEl = form.querySelector(':invalid:not(fieldset)');
-      if (firstInvalidEl) {
-        firstInvalidEl.focus();
-        firstInvalidEl.scrollIntoView({ behavior: 'smooth' });
-      }
-    }
-  });
+
+  let captcha;
+  if (captchaField) {
+    const siteKey = captchaField?.properties?.['fd:captcha']?.config?.siteKey;
+    captcha = new GoogleReCaptcha(siteKey, captchaField.id);
+    captcha.loadCaptcha(form);
+  }
+
+  enableValidation(form);
+  transferRepeatableDOM(form);
+
+  if (afModule) {
+    window.setTimeout(async () => {
+      afModule.loadRuleEngine(formDef, form, captcha, generateFormRendition, data);
+    }, DELAY_MS);
+  }
+
   return form;
+}
+
+function isDocumentBasedForm(formDef) {
+  return formDef?.[':type'] === 'sheet' && formDef?.data;
 }
 
 export default async function decorate(block) {
@@ -396,12 +391,22 @@ export default async function decorate(block) {
     const codeEl = container?.querySelector('code');
     const content = codeEl?.textContent;
     if (content) {
-      formDef = JSON.parse(content?.replace(/\n|\s\s+/g, ''));
+      formDef = JSON.parse(content?.replace(/\x83\n|\n|\s\s+/g, ''));
     }
   }
   if (formDef) {
-    formDef.action = env.publish + formDef.action;
-    const form = await enableRuleEngine(formDef, createForm);
-    container.replaceWith(form);
+    if (isDocumentBasedForm(formDef)) {
+      const { data } = formDef;
+      const transform = new DocBasedFormToAF();
+      const afFormDef = transform.transform(formDef);
+      const form = await createForm(afFormDef, data);
+      container.replaceWith(form);
+    } else {
+      afModule = await import('./rules/index.js');
+      if (afModule && afModule.initAdaptiveForm) {
+        const form = await afModule.initAdaptiveForm(formDef, createForm);
+        container.replaceWith(form);
+      }
+    }
   }
 }

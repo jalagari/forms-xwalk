@@ -821,17 +821,22 @@ class BaseNode {
         const isNonTransparent = this.parent?._jsonModel.type === 'array';
         return !this._jsonModel.name && !isNonTransparent;
     }
-    getState(isRepeatableChild = false) {
+    getState(forRestore = false) {
         return {
             ...this._jsonModel,
             properties: this.properties,
             index: this.index,
             parent: undefined,
             qualifiedName: this.qualifiedName,
-            events: {},
-            rules: {},
             repeatable: this.repeatable === true ? true : undefined,
-            ':type': this[':type']
+            ':type': this[':type'],
+            ...(forRestore ? {
+                _dependents: this._dependents.length ? this._dependents.map(x => x.node.id) : undefined,
+                allowedComponents: undefined,
+                columnClassNames: undefined,
+                columnCount: undefined,
+                gridClassNames: undefined
+            } : {})
         };
     }
     subscribe(callback, eventName = 'change') {
@@ -874,6 +879,16 @@ class BaseNode {
         this.form.getEventQueue().runPendingQueue();
     }
     notifyDependents(action) {
+        const depsToRestore = this._jsonModel._dependents;
+        if (depsToRestore) {
+            depsToRestore.forEach((x) => {
+                const node = this.form.getElement(x);
+                if (node) {
+                    this._addDependent(node);
+                }
+            });
+            this._jsonModel._dependents = undefined;
+        }
         const handlers = this._callbacks[action.type] || [];
         handlers.forEach(x => {
             x(new ActionImplWithTarget(action, this));
@@ -997,7 +1012,7 @@ class BaseNode {
         }
         return nonTransparentParent;
     }
-    _initialize() {
+    _initialize(mode) {
         if (typeof this._data === 'undefined') {
             let dataNode, parent = this.parent;
             do {
@@ -1159,15 +1174,13 @@ class Scriptable extends BaseNode {
                     return 'Object';
                 }
                 prop = prop;
-                if (prop.startsWith('$')) {
+                if (typeof prop === 'string' && prop.startsWith('$')) {
                     const retValue = target.self[prop];
                     if (retValue instanceof BaseNode) {
                         return retValue.getRuleNode();
-                    }
-                    else if (retValue instanceof Array) {
+                    } else if (retValue instanceof Array) {
                         return retValue.map(r => r instanceof BaseNode ? r.getRuleNode() : r);
-                    }
-                    else {
+                    } else {
                         return retValue;
                     }
                 }
@@ -1244,7 +1257,7 @@ class Container extends Scriptable {
     _itemTemplate = null;
     fieldFactory;
     constructor(json, _options) {
-        super(json, { form: _options.form, parent: _options.parent });
+        super(json, { form: _options.form, parent: _options.parent, mode: _options.mode });
         this.fieldFactory = _options.fieldFactory;
     }
     _getDefaults() {
@@ -1306,7 +1319,7 @@ class Container extends Scriptable {
     isAFormField(item) {
         return ('fieldType' in item || 'id' in item || 'name' in item || 'dataRef' in item || 'type' in item);
     }
-    _getFormAndSitesState(isRepeatableChild = false) {
+    _getFormAndSitesState(isRepeatableChild = false, forRestore = false) {
         return this._jsonModel.items ? this._jsonModel.items.map((x) => {
             if (this.isSiteContainer(x)) {
                 const newObjWithId = {
@@ -1319,42 +1332,42 @@ class Container extends Scriptable {
                 };
             }
             else if (this.isAFormField(x)) {
-                return { ...this.form.getElement(x?.id).getState(isRepeatableChild) };
+                return { ...this.form.getElement(x?.id).getState(isRepeatableChild, forRestore) };
             }
             else {
                 return x;
             }
         }) : [];
     }
-    getItemsState(isRepeatableChild = false) {
+    getItemsState(isRepeatableChild = false, forRestore = false) {
         if (this._jsonModel.type === 'array' || isRepeatable$1(this._jsonModel) || isRepeatableChild) {
             if (isRepeatableChild) {
-                return this._getFormAndSitesState(isRepeatableChild);
+                return this._getFormAndSitesState(isRepeatableChild, forRestore);
             }
             else {
                 return this._children.map(x => {
-                    return { ...x.getState(true) };
+                    return { ...x.getState(true, forRestore) };
                 });
             }
         }
         else {
-            return this._getFormAndSitesState(isRepeatableChild);
+            return this._getFormAndSitesState(isRepeatableChild, forRestore);
         }
     }
-    getState(isRepeatableChild = false) {
+    getState(isRepeatableChild = false, forRestore = false) {
         return {
-            ...super.getState(isRepeatableChild),
-            items: this.getItemsState(isRepeatableChild),
+            ...super.getState(forRestore),
+            ...(forRestore ? {
+                ':items': undefined,
+                ':itemsOrder': undefined
+            } : {}),
+            items: this.getItemsState(isRepeatableChild, forRestore),
             enabled: this.enabled,
             readOnly: this.readOnly
         };
     }
     _createChild(child, options) {
-        const { parent = this } = options;
-        return this.fieldFactory.createField(child, {
-            form: options.form,
-            parent
-        });
+        return this.fieldFactory.createField(child, options);
     }
     walkSiteContainerItems(x) {
         return Object.fromEntries(Object.entries(x[':items']).map(([key, value]) => {
@@ -1367,7 +1380,7 @@ class Container extends Scriptable {
             else {
                 if (typeof value === 'object') {
                     const newObjWithId = {
-                        ...(value?.id ? { 'id': this.form.getUniqueId() } : {})
+                        ...(value?.id ? { id: this.form.getUniqueId() } : {})
                     };
                     return [key, {
                             ...value,
@@ -1406,7 +1419,7 @@ class Container extends Scriptable {
             });
         }
     }
-    _addChild(itemJson, index, cloneIds = false) {
+    _addChild(itemJson, index, cloneIds = false, mode = 'create') {
         let nonTransparentParent = this;
         while (nonTransparentParent != null && nonTransparentParent.isTransparent()) {
             nonTransparentParent = nonTransparentParent.parent;
@@ -1419,7 +1432,7 @@ class Container extends Scriptable {
             index,
             ...deepClone(itemJson, cloneIds ? () => { return form.getUniqueId(); } : undefined)
         };
-        const retVal = this._createChild(itemTemplate, { parent: this, form: this.form });
+        const retVal = this._createChild(itemTemplate, { parent: this, form: this.form, mode });
         itemJson.id = retVal.id;
         this.form.fieldAdded(retVal);
         this._addChildToRuleNode(retVal, { parent: nonTransparentParent });
@@ -1444,12 +1457,20 @@ class Container extends Scriptable {
             return new DataGroup(name, instance, type);
         }
     }
-    _initialize() {
-        super._initialize();
+    _canHaveRepeatingChildren(mode = 'create') {
+        const items = this._jsonModel.items;
+        return this._jsonModel.type == 'array' && this.getDataNode() != null &&
+            (items.length === 1 || (items[0].repeatable == true && mode === 'restore'));
+    }
+    _initialize(mode) {
+        super._initialize(mode);
         const items = this._jsonModel.items || [];
         this._childrenReference = this._jsonModel.type == 'array' ? [] : {};
-        if (this._jsonModel.type == 'array' && items.length === 1 && this.getDataNode() != null) {
+        if (this._canHaveRepeatingChildren(mode)) {
             this._itemTemplate = deepClone(items[0]);
+            if (mode === 'restore') {
+                this._itemTemplate.repeatable = undefined;
+            }
             if (typeof (this._jsonModel.minItems) !== 'number') {
                 this._jsonModel.minItems = 0;
             }
@@ -1460,9 +1481,22 @@ class Container extends Scriptable {
                 this._jsonModel.initialItems = Math.max(1, this._jsonModel.minItems);
             }
             for (let i = 0; i < this._jsonModel.initialItems; i++) {
-                const child = this._addChild(this._itemTemplate, null, i > 0);
-                items[0].id = child.id;
-                child._initialize();
+                let child;
+                if (mode === 'restore') {
+                    let itemTemplate = this._itemTemplate;
+                    if (i < this._jsonModel.items.length) {
+                        itemTemplate = deepClone(items[i]);
+                        itemTemplate.repeatable = undefined;
+                    }
+                    child = this._addChild(itemTemplate, undefined, i > this._jsonModel.items.length - 1, mode);
+                }
+                else {
+                    child = this._addChild(this._itemTemplate, undefined, i > this._jsonModel.items.length - 1);
+                }
+                if (mode === 'create') {
+                    items[0].id = child.id;
+                }
+                child._initialize(mode);
             }
         }
         else if (items.length > 0) {
@@ -1471,11 +1505,11 @@ class Container extends Scriptable {
                     this._initializeSiteContainer(item);
                 }
                 else if (this.isAFormField(item)) {
-                    const child = this._addChild(item);
-                    child._initialize();
+                    const child = this._addChild(item, undefined, false, mode);
+                    child._initialize(mode);
                 }
                 else {
-                    this.form.logger.warn('A container item was not initialized.');
+                    this.form.logger.warn(`A container item was not initialized. ${item}`);
                 }
             });
             this._jsonModel.minItems = this._children.length;
@@ -1511,7 +1545,7 @@ class Container extends Scriptable {
                 if (_data) {
                     dataNode.$addDataNode(instanceIndex, _data);
                 }
-                retVal._initialize();
+                retVal._initialize('create');
                 this.notifyDependents(propertyChange('items', retVal.getState(), null));
                 retVal.dispatch(new Initialize());
                 retVal.dispatch(new ExecuteRule());
@@ -1587,7 +1621,7 @@ class Container extends Scriptable {
             while (items2Add > 0) {
                 items2Add--;
                 const child = this._addChild(this._itemTemplate);
-                child._initialize();
+                child._initialize('create');
             }
             if (items2Remove > 0) {
                 this._children.splice(dataLength, items2Remove);
@@ -1794,6 +1828,9 @@ class EventQueue {
                 this.logger.info(`Skipped queueing event : ${e.type} node: ${node.id} - ${node.name} with count=${counter}`);
             }
         });
+    }
+    empty() {
+        this._pendingEvents = [];
     }
     runPendingQueue() {
         if (this._isProcessing) {
@@ -2484,19 +2521,23 @@ class Form extends Container {
     _fields = {};
     _ids;
     _invalidFields = [];
-    _logger;
-    constructor(n, fieldFactory, _ruleEngine, _eventQueue = new EventQueue(), logLevel = 'off') {
-        super(n, { fieldFactory: fieldFactory });
+    constructor(n, fieldFactory, _ruleEngine, _eventQueue = new EventQueue(), logLevel = 'off', mode = 'create') {
+        super(n, { fieldFactory: fieldFactory, mode });
         this._ruleEngine = _ruleEngine;
         this._eventQueue = _eventQueue;
         this._logger = new Logger(logLevel);
-        this.queueEvent(new Initialize());
-        this.queueEvent(new ExecuteRule());
+        if (mode === 'create') {
+            this.queueEvent(new Initialize());
+            this.queueEvent(new ExecuteRule());
+        }
         this._ids = IdGenerator();
         this._bindToDataModel(new DataGroup('$form', {}));
-        this._initialize();
-        this.queueEvent(new FormLoad());
+        this._initialize(mode);
+        if (mode === 'create') {
+            this.queueEvent(new FormLoad());
+        }
     }
+    _logger;
     get logger() {
         return this._logger;
     }
@@ -2606,9 +2647,9 @@ class Form extends Container {
             this.#setActiveFirstDeepChild(activeChild);
         }
     }
-    getState() {
+    getState(forRestore = false) {
         const self = this;
-        const res = super.getState();
+        const res = super.getState(false, forRestore);
         res.id = '$form';
         Object.defineProperty(res, 'data', {
             get: function () {
@@ -2656,7 +2697,25 @@ class Form extends Container {
         field.subscribe((action) => {
             const field = action.target.getState();
             if (field) {
-                const fieldChangedAction = new FieldChanged(action.payload.changes, field);
+                const shallowClone = (obj) => {
+                    if (obj && typeof obj === 'object') {
+                        if (Array.isArray(obj)) {
+                            return obj.map(shallowClone);
+                        }
+                        else {
+                            return { ...obj };
+                        }
+                    }
+                    return obj;
+                };
+                const changes = action.payload.changes.map(({ propertyName, currentValue, prevValue }) => {
+                    return {
+                        propertyName,
+                        currentValue: shallowClone(currentValue),
+                        prevValue: shallowClone(prevValue)
+                    };
+                });
+                const fieldChangedAction = new FieldChanged(changes, field);
                 this.dispatch(fieldChangedAction);
             }
         });
@@ -2797,9 +2856,11 @@ class RuleEngine {
 class Fieldset extends Container {
     constructor(params, _options) {
         super(params, _options);
-        this._applyDefaults();
-        this.queueEvent(new Initialize());
-        this.queueEvent(new ExecuteRule());
+        if (_options.mode !== 'restore') {
+            this._applyDefaults();
+            this.queueEvent(new Initialize());
+            this.queueEvent(new ExecuteRule());
+        }
     }
     _getDefaults() {
         return {
@@ -3139,9 +3200,11 @@ const validTypes = ['string', 'number', 'integer', 'boolean', 'file', 'string[]'
 class Field extends Scriptable {
     constructor(params, _options) {
         super(params, _options);
-        this._applyDefaults();
-        this.queueEvent(new Initialize());
-        this.queueEvent(new ExecuteRule());
+        if (_options.mode !== 'restore') {
+            this._applyDefaults();
+            this.queueEvent(new Initialize());
+            this.queueEvent(new ExecuteRule());
+        }
     }
     _ruleNodeReference = [];
     _initialize() {
@@ -3258,11 +3321,11 @@ class Field extends Scriptable {
         }
         this.coerceParam('minLength', 'number');
         this.coerceParam('maxLength', 'number');
-        if (this._jsonModel.type !== 'number' && this._jsonModel.format !== 'date') {
+        if (this._jsonModel.type !== 'number' && this._jsonModel.format !== 'date' && this._jsonModel.type !== 'integer') {
             this.unset('step', ...props);
         }
         props.forEach(c => {
-            this.coerceParam(c, this._jsonModel.type);
+            this.coerceParam(c, this._jsonModel.type === 'integer' ? 'number' : this._jsonModel.type);
         });
         if (typeof this._jsonModel.step !== 'number') {
             this.coerceParam('step', 'number');
@@ -3358,22 +3421,22 @@ class Field extends Scriptable {
         this._setProperty('required', r);
     }
     get maximum() {
-        if (this.type === 'number' || this.format === 'date') {
+        if (this.type === 'number' || this.format === 'date' || this.type === 'integer') {
             return this._jsonModel.maximum;
         }
     }
     set maximum(m) {
-        if (this.type === 'number' || this.format === 'date') {
+        if (this.type === 'number' || this.format === 'date' || this.type === 'integer') {
             this._setProperty('maximum', m);
         }
     }
     get minimum() {
-        if (this.type === 'number' || this.format === 'date') {
+        if (this.type === 'number' || this.format === 'date' || this.type === 'integer') {
             return this._jsonModel.minimum;
         }
     }
     set minimum(m) {
-        if (this.type === 'number' || this.format === 'date') {
+        if (this.type === 'number' || this.format === 'date' || this.type === 'integer') {
             this._setProperty('minimum', m);
         }
     }
@@ -3659,22 +3722,22 @@ class Field extends Scriptable {
         }
     }
     get exclusiveMinimum() {
-        if (this.type === 'number' || this.format === 'date') {
+        if (this.type === 'number' || this.format === 'date' || this.type === 'integer') {
             return this._jsonModel.exclusiveMinimum;
         }
     }
     set exclusiveMinimum(eM) {
-        if (this.type === 'number' || this.format === 'date') {
+        if (this.type === 'number' || this.format === 'date' || this.type === 'integer') {
             this._jsonModel.exclusiveMinimum = eM;
         }
     }
     get exclusiveMaximum() {
-        if (this.type === 'number' || this.format === 'date') {
+        if (this.type === 'number' || this.format === 'date' || this.type === 'integer') {
             return this._jsonModel.exclusiveMaximum;
         }
     }
     set exclusiveMaximum(eM) {
-        if (this.type === 'number' || this.format === 'date') {
+        if (this.type === 'number' || this.format === 'date' || this.type === 'integer') {
             this._jsonModel.exclusiveMaximum = eM;
         }
     }
@@ -3787,9 +3850,9 @@ class Field extends Scriptable {
         const value = staticFields.indexOf(this.fieldType) > -1 ? undefined : this.getDataNodeValue(this._jsonModel.value);
         return new DataValue(name, value, this.type || 'string');
     }
-    getState() {
+    getState(isRepeatableChild = false, forRestore = false) {
         return {
-            ...super.getState(),
+            ...super.getState(forRestore),
             editFormat: this.editFormat,
             displayFormat: this.displayFormat,
             editValue: this.editValue,
@@ -4154,6 +4217,20 @@ const createFormInstance = (formModel, callback, logLevel = 'error', fModel = un
         throw new Error(e);
     }
 };
+const defaultOptions = {
+    logLevel: 'error'
+};
+const restoreFormInstance = (formModel, { logLevel } = defaultOptions) => {
+    try {
+        const form = new Form({ ...formModel }, FormFieldFactory, new RuleEngine(), new EventQueue(new Logger(logLevel)), logLevel, 'restore');
+        form.getEventQueue().empty();
+        return form;
+    }
+    catch (e) {
+        console.error(`Unable to restore an instance of the Form ${e}`);
+        throw new Error(e);
+    }
+};
 const validateFormInstance = (formModel, data) => {
     try {
         const f = new Form({ ...formModel }, FormFieldFactory, new RuleEngine());
@@ -4207,4 +4284,4 @@ const registerFunctions = (functions) => {
     FunctionRuntime.registerFunctions(functions);
 };
 
-export { createFormInstance, fetchForm, registerFunctions, validateFormData, validateFormInstance };
+export { createFormInstance, fetchForm, registerFunctions, restoreFormInstance, validateFormData, validateFormInstance };
