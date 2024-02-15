@@ -404,6 +404,7 @@ export default async function decorate(block) {
     } else {
       afModule = await import('./rules/index.js');
       if (afModule && afModule.initAdaptiveForm) {
+        formDef.action = `https://author-p10652-e192853-cmstg.adobeaemcloud.com${formDef.action}`;
         const form = await afModule.initAdaptiveForm(formDef, createForm);
         container.replaceWith(form);
       }
